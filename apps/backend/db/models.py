@@ -18,7 +18,7 @@ class Wall(Base):
 
     # Relations
     holds: Mapped[List["Hold"]] = relationship("Hold", back_populates="wall")
-    routes: Mapped[List["Route"]] = relationship("Route", backpopulates="wall")
+    routes: Mapped[List["Route"]] = relationship("Route", back_populates="wall")
 
 class Route(Base):
     __tablename__ = "routes"
@@ -33,7 +33,7 @@ class Route(Base):
     # Relations
     wall: Mapped["Wall"] = relationship("Wall", back_populates="routes")
     route_holds: Mapped[List["RouteHolds"]] = relationship("RouteHolds", back_populates="routes")
-    ascents: Mapped[List["Ascent"]] = relationship("Ascent", backpopulates="route")
+    ascents: Mapped[List["Ascent"]] = relationship("Ascent", back_populates="route")
 
 class Hold(Base):
     __tablename__ = "holds"
