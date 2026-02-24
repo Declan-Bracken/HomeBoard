@@ -33,13 +33,13 @@ class WallResponse(WallBase):
 class RouteBase(BaseModel):
     name: str
     grade: str
-    wall_id: int
 
 class RouteCreate(RouteBase):
     pass
 
 class RouteResponse(RouteBase):
     id: int
+    wall_id: int
     created_at: datetime
 
     class Config:
