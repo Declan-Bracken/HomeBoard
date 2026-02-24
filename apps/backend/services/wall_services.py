@@ -19,3 +19,9 @@ def get_wall(wall_id: int, db: Session):
     if not wall:
         raise ValueError("Wall not found!")
     return wall
+
+def get_all_walls(db: Session):
+    walls = db.query(Wall)
+    if not walls:
+        raise ValueError("No walls found!")
+    return walls
