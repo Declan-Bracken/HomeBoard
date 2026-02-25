@@ -20,6 +20,8 @@ class Wall(Base):
     holds: Mapped[List["Hold"]] = relationship("Hold", back_populates="wall")
     routes: Mapped[List["Route"]] = relationship("Route", back_populates="wall")
 
+# Likely want a wall versions table to store different hold configurations for the same wall without needing to register a new wall
+
 class Route(Base):
     __tablename__ = "routes"
 

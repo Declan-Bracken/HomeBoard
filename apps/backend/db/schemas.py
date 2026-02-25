@@ -46,4 +46,26 @@ class RouteResponse(RouteBase):
         from_attributes = True
 
 # Ascent
+class AscentCreate(BaseModel):
+    user_id: int
+    route_id: int
 
+class AscentResponse(BaseModel):
+    id: int
+    user_id: int
+    route_id: int
+    created_at: datetime
+    # Note: an ascent should probably have an optional attempt count & a recommended grade field
+    class Config:
+        from_attributes = True
+
+# Hold
+class HoldCreate(BaseModel):
+    # No need to pass wall id as it will be inherited during creation
+    pass
+
+class HoldResponse(BaseModel):
+    id: int
+    wall_id: int
+    class Config:
+        from_attributes = True

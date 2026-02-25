@@ -1,0 +1,24 @@
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+from sqlalchemy.orm import Session
+from db.database import get_db
+from db.models import Hold
+from db.schemas import HoldResponse, HoldCreate
+from services import hold_services as hs
+
+router = APIRouter(prefix="/walls/{wall_id}/holds", tags=["Holds"])
+
+@router.post("/", response_model = HoldResponse)
+def create_hold_endpoint(wall_id:int, hold: HoldCreate, db: Session = Depends(get_db)):
+    try:
+        return hs.create_hold(wall_id, hold, db)
+    except ValueError as e:
+        raise HTTPException(status_code = 400, detail=f"Error encountered during hold creation: {e}")
+    
+@router.get("/{hold_id}", response_model = HoldResponse)
+def get_hold_endpoint(wall_id: int, hold_id: int, db: Session = Depends(get_db)):
+    try:
+        return hs.get_hold(wall_id, hold_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code = 404, detail = "Hold not found!")
+
