@@ -18,7 +18,7 @@ class Wall(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     image_url: Mapped[str] = mapped_column(String, nullable=False)
-    created_by: Mapped[str] = mapped_column(String, nulable=False)
+    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), index = True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     # Relations
@@ -59,7 +59,7 @@ class Route(Base):
     wall_id: Mapped[int] = mapped_column(Integer, ForeignKey("walls.id"), index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     grade: Mapped[GradeEnum] = mapped_column(Enum(GradeEnum), nullable=True, default = "Unknown")
-    created_by: Mapped[str] = mapped_column(String, nullable=True)
+    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     # Relations

@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
 from db.database import get_db
-from db.models import Wall
 from db.schemas import WallResponse, WallCreate
 from services import wall_services as ws
 """
@@ -23,7 +22,7 @@ def create_wall_endpoint(wall: WallCreate, db: Session = Depends(get_db)):
 @router.get("/{wall_id}", response_model=WallResponse)
 def get_wall_endpoint(wall_id: int, db: Session = Depends(get_db)):
     try:
-        return ws.get_wall(db, wall_id)
+        return ws.get_wall(wall_id, db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

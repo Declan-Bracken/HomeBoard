@@ -50,7 +50,6 @@ class RouteResponse(RouteBase):
 # Ascent
 class AscentCreate(BaseModel):
     user_id: int
-    route_id: int
 
 class AscentResponse(BaseModel):
     id: int

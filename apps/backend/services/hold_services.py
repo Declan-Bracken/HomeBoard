@@ -20,3 +20,11 @@ def get_hold(wall_id: int, hold_id: int, db: Session):
         raise ValueError("Hold does not exist on specified wall!")
     
     return hold
+
+def get_all_holds(wall_id: int, db: Session):
+    wall_exists = db.query(Wall).filter(Wall.id == wall_id).first()
+    if not wall_exists:
+        raise ValueError("Wall does not exist!")
+    
+    return db.query(Hold).filter(Hold.wall_id == wall_id).all()
+    
