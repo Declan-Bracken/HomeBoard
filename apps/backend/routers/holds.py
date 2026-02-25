@@ -20,5 +20,5 @@ def get_hold_endpoint(wall_id: int, hold_id: int, db: Session = Depends(get_db))
     try:
         return hs.get_hold(wall_id, hold_id, db)
     except ValueError as e:
-        raise HTTPException(status_code = 404, detail = "Hold not found!")
+        raise HTTPException(status_code = 404, detail = f"Error retrieving hold details: {e}")
 

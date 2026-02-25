@@ -18,6 +18,7 @@ class UserResponse(BaseModel):
 class WallBase(BaseModel):
     name: str
     image_url: str
+    created_by: str
 
 class WallCreate(WallBase):
     pass
@@ -33,6 +34,7 @@ class WallResponse(WallBase):
 class RouteBase(BaseModel):
     name: str
     grade: str
+    created_by: str
 
 class RouteCreate(RouteBase):
     pass
@@ -60,11 +62,20 @@ class AscentResponse(BaseModel):
         from_attributes = True
 
 # Hold
-class HoldCreate(BaseModel):
-    # No need to pass wall id as it will be inherited during creation
+class HoldBase(BaseModel):
+    x_min: int
+    x_max: int
+    y_min: int
+    y_max: int
+    x_center: int
+    y_center: int
+    confidence: float
+    polygon: list
+
+class HoldCreate(HoldBase):
     pass
 
-class HoldResponse(BaseModel):
+class HoldResponse(HoldBase):
     id: int
     wall_id: int
     class Config:
