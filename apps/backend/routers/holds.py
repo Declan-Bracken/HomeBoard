@@ -21,7 +21,7 @@ def get_hold_endpoint(wall_id: int, hold_id: int, db: Session = Depends(get_db))
     except ValueError as e:
         raise HTTPException(status_code = 404, detail = f"Error retrieving hold details: {e}")
 
-@router.get("/", response_model = HoldResponse)
+@router.get("/", response_model = List[HoldResponse])
 def get_holds_endpoint(wall_id: int, db: Session = Depends(get_db)):
     try:
         return hs.get_all_holds(wall_id, db)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 # User
 class UserCreate(BaseModel):
@@ -79,3 +79,19 @@ class HoldResponse(HoldBase):
     wall_id: int
     class Config:
         from_attributes = True
+
+class RouteHoldCreate(BaseModel):
+	# Specify fields and types (exclude anything that must be used for filtering)
+	# leave route_id out
+	hold_id: int
+	role: Literal["start", "end", "foot", "any"]
+	
+class RouteHoldResponse(BaseModel):
+	# Specify any fields in RouteHoldCreate + any created by the database
+	id: int
+	route_id: int
+	hold_id: int
+	role: str
+	
+	class Config:
+		from_attributes = True
