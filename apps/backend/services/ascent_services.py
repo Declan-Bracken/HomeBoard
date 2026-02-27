@@ -9,8 +9,7 @@ def create_ascent(route_id: int, ascent: AscentCreate, db: Session):
 
     ascent_db = Ascent(route_id=route_id, **ascent.model_dump())
     db.add(ascent_db)
-    db.commit()
-    db.refresh(ascent_db)
+    db.flush()
     return ascent_db
 
 def get_ascent(route_id: int, ascent_id: int, db: Session):

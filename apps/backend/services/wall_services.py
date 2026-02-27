@@ -10,8 +10,7 @@ def create_wall(wall: WallCreate, db: Session):
     
     db_wall = Wall(**wall.model_dump()) # Create the wall object based on input data
     db.add(db_wall)
-    db.commit()
-    db.refresh(db_wall)
+    db.flush()
     return db_wall
 
 def get_wall(wall_id: int, db: Session):

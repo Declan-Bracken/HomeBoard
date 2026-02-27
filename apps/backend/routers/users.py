@@ -10,8 +10,12 @@ router = APIRouter(prefix="/users", tags=["Users"])
 @router.post("/", response_model=UserResponse)
 def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     try:
-        return us.create_user(user, db)
+        user_db = us.create_user(user, db)
+        db.commit()
+        db.refresh(user_db)
+        return user_db
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{user_id}", response_model=UserResponse)

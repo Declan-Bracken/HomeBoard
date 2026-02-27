@@ -10,8 +10,7 @@ def create_user(user: UserCreate, db: Session):
     
     db_user = User(**user.model_dump()) # Create the user object based on input data
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    db.flush()
     return db_user
 
 def get_user(user_id: int, db: Session):

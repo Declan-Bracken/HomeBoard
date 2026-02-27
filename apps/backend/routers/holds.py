@@ -8,10 +8,14 @@ from services import hold_services as hs
 router = APIRouter(prefix="/walls/{wall_id}/holds", tags=["Holds"])
 
 @router.post("/", response_model = HoldResponse)
-def create_hold_endpoint(wall_id:int, hold: HoldCreate, db: Session = Depends(get_db)):
+def create_hold_endpoint(wall_id: int, hold: HoldCreate, db: Session = Depends(get_db)):
     try:
-        return hs.create_hold(wall_id, hold, db)
+        hold_db = hs.create_hold(wall_id, hold, db)
+        db.commit()
+        db.refresh(hold_db)
+        return hold_db
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code = 400, detail=f"Error encountered during hold creation: {e}")
     
 @router.get("/{hold_id}", response_model = HoldResponse)

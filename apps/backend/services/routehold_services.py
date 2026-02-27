@@ -13,15 +13,13 @@ def create_routehold(route_id: int, routehold: RouteHoldCreate, db: Session):
 		raise ValueError("Hold does not exist!")
 	if route.wall_id != hold.wall_id:
 		raise ValueError("Route and hold belong to different walls!")
+	routehold_exists = db.query(RouteHolds).filter(RouteHolds.route_id == route_id).filter(RouteHolds.hold_id == routehold.hold_id).first()
+	if routehold_exists:
+		raise ValueError("Hold already present on route!")
 	
 	routehold_db = RouteHolds(route_id = route_id, **routehold.model_dump())
 	db.add(routehold_db)
-	try:
-		db.commit()
-	except IntegrityError:
-		db.rollback()
-		raise ValueError("Hold already added to route!")
-	db.refresh(routehold_db)
+	db.flush()
 	return routehold_db
 	
 def get_routehold(route_id: int, routehold_id: int, db: Session):

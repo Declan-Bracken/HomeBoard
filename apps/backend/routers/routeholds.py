@@ -12,8 +12,12 @@ router = APIRouter(prefix = "/routes/{route_id}/routeholds", tags = ["RouteHolds
 @router.post("/", response_model = RouteHoldResponse)
 def create_routehold_endpoint(route_id: int, routehold: RouteHoldCreate, db: Session = Depends(get_db)):
 	try:
-		return rhs.create_routehold(route_id, routehold, db)
+		routehold_db = rhs.create_routehold(route_id, routehold, db)
+		db.commit()
+		db.refresh(routehold_db)
+		return routehold_db
 	except ValueError as e:
+		db.rollback()
 		raise HTTPException(status_code = 400, detail=str(e))
 
 # getting all route holds

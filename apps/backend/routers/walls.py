@@ -15,8 +15,12 @@ router = APIRouter(prefix="/walls", tags=["Walls"])
 @router.post("/", response_model=WallResponse)
 def create_wall_endpoint(wall: WallCreate, db: Session = Depends(get_db)):
     try:
-        return ws.create_wall(wall, db)
+        wall_db = ws.create_wall(wall, db)
+        db.commit()
+        db.refresh(wall_db)
+        return wall_db
     except ValueError as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{wall_id}", response_model=WallResponse)
