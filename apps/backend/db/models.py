@@ -116,7 +116,9 @@ class RouteHolds(Base):
 
 class User(Base):
     __tablename__ = "users"
-
+    __table_args__ = (
+        UniqueConstraint("username", name="uq_username"),
+    )
     # Columns
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     username: Mapped[str] = mapped_column(String, nullable=False)
