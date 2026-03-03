@@ -17,7 +17,6 @@ class Wall(Base):
     # Columns
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    image_url: Mapped[str] = mapped_column(String, nullable=False)
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), index = True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
@@ -122,6 +121,8 @@ class User(Base):
     # Columns
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     username: Mapped[str] = mapped_column(String, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
     # Relations

@@ -1,6 +1,6 @@
 from db.models import Base
 from db.database import engine
-from routers import walls, routes, holds, users, ascents, routeholds, image_ingestion
+from routers import walls, routes, holds, users, ascents, routeholds, image_ingestion, auth
 from fastapi import FastAPI
 
 # Start App
@@ -19,3 +19,5 @@ app.include_router(users.router)
 app.include_router(ascents.router)
 app.include_router(routeholds.router)
 app.include_router(image_ingestion.router)
+app.include_router(auth.router)
+
