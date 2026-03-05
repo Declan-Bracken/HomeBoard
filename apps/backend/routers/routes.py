@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
+from db.models import User
 from db.database import get_db
-from db.schemas import RouteResponse, RouteCreate, RouteHoldCreate
+from db.schemas import RouteResponse, RouteCreate, RouteWithHoldsCreate
 from services import route_services as rs
+from core.dependencies import get_current_user
 
 router = APIRouter(prefix="/walls/{wall_id}/routes", tags=["Routes"])
 
@@ -32,9 +34,15 @@ def get_routes_endpoint(wall_id: int, db: Session = Depends(get_db)):
 
 # Orchestration:
 @router.post("/with-holds", response_model=RouteResponse)
-def create_route_with_holds_endpoint(wall_id: int, route: RouteCreate, holds_data: List[RouteHoldCreate], db: Session = Depends(get_db)):
+def create_route_with_holds_endpoint(
+    wall_id: int,
+    payload: RouteWithHoldsCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        route_db = rs.create_route_with_holds(wall_id, route, holds_data, db)
+        payload.route.created_by = current_user.username
+        route_db = rs.create_route_with_holds(wall_id, payload.route, payload.holds_data, db)
         db.commit()
         db.refresh(route_db)
         return route_db

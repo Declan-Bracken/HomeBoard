@@ -2,9 +2,18 @@ from db.models import Base
 from db.database import engine
 from routers import walls, routes, holds, users, ascents, routeholds, image_ingestion, auth
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Start App
 app = FastAPI(title = "Home Board App")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Vite's dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Create database tables
 Base.metadata.create_all(engine)
 

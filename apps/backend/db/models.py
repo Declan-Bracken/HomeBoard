@@ -1,6 +1,5 @@
-from typing import List
 import enum
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 from sqlalchemy import UniqueConstraint, ForeignKey, String, Integer, DateTime, Float, JSON, Enum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -17,6 +16,7 @@ class Wall(Base):
     # Columns
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    image_path: Mapped[str] = mapped_column(String, nullable=True)
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), index = True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
 
@@ -60,6 +60,8 @@ class Route(Base):
     grade: Mapped[GradeEnum] = mapped_column(Enum(GradeEnum), nullable=True, default = "Unknown")
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    description: Mapped[Optional[str]] = mapped_column(String, nullable = True)
+    ascent_count: Mapped[int] = mapped_column(Integer, nullable = False, default = 0, server_default="0")
 
     # Relations
     wall: Mapped["Wall"] = relationship("Wall", back_populates="routes")
@@ -138,7 +140,11 @@ class Ascent(Base):
     route_id: Mapped[int] = mapped_column(Integer, ForeignKey("routes.id"), index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
-
+    quality: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
+    suggested_grade: Mapped[Optional[GradeEnum]] = mapped_column(Enum(GradeEnum), nullable=True)
+    n_attempts: Mapped[Optional[int]] = mapped_column(Integer, nullable = True)
+    notes: Mapped[Optional[str]] = mapped_column(String, nullable = True)
+    
     # Relations
     users: Mapped["User"] = relationship('User', back_populates="ascents")
     route: Mapped["Route"] = relationship('Route', back_populates="ascents")

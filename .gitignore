@@ -4,3 +4,11 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.env
+*.jpg
+
+# Alembic won't need this ignored but keep DB out
+*.db
+*.sqlite
+*alembic/versions/
+alembic.ini

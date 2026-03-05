@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
 from db.database import get_db
-from db.schemas import UserResponse, UserCreate
+from db.models import User
+from db.schemas import UserResponse, UserCreate, UserProfileResponse
 from services import user_services as us
+from core.dependencies import get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -29,5 +31,12 @@ def get_user_endpoint(user_id: int, db: Session = Depends(get_db)):
 def get_users_endpoint(db: Session = Depends(get_db)):
     try:
         return us.get_all_users(db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/me/profile", response_model = UserProfileResponse)
+def get_user_statistics(user_id: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        return us.get_statistics(user_id.id, db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

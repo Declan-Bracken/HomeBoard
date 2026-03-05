@@ -7,6 +7,24 @@ from services.hold_services import create_hold
 
 CONFIDENCE = 10
 
+def preview_wall_image(wall_id: int, image_path: str, db: Session):
+    wall = db.query(Wall).filter(Wall.id == wall_id).first()
+    if not wall:
+        raise ValueError("Wall does not exist")
+
+    existing_holds = db.query(Hold).filter(Hold.wall_id == wall_id).count()
+    if existing_holds > 0:
+        raise ValueError("Holds already exist for this wall")
+
+    predictions = segmentation.run(image_path, CONFIDENCE)
+    if not predictions:
+        raise ValueError("No holds detected")
+
+    # Convert predictions to hold dicts without committing
+    holds_preview = [prediction_to_hold(pred).model_dump() for pred in predictions["predictions"]]
+
+    return holds_preview
+
 def ingest_wall_image(wall_id: int, image_path: UploadFile, db: Session):
     # Ensure wall exists
     wall = db.query(Wall).filter(Wall.id == wall_id).first()
@@ -30,3 +48,14 @@ def ingest_wall_image(wall_id: int, image_path: UploadFile, db: Session):
         holds_created.append(create_hold(wall_id, hold, db))
     
     return len(holds_created), annotated_image_path
+
+def confirm_wall_with_holds(wall_id: int, image_path: str, holds, db: Session):
+    # Update wall image path
+    wall = db.query(Wall).filter(Wall.id == wall_id).first()
+    if not wall:
+        raise ValueError("Wall not found")
+    wall.image_path = image_path
+
+    for hold_data in holds:
+        create_hold(wall_id, hold_data, db)
+    return len(holds)

@@ -1,22 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException
 from db.database import get_db
 from typing import List
+from db.models import User
 from sqlalchemy.orm import Session
 from db.schemas import AscentCreate, AscentResponse
 from services import ascent_services as a_s
+from core.dependencies import get_current_user
 
 router = APIRouter(prefix = "/routes/{route_id}/ascents", tags=["Ascents"])
 
 @router.post("/", response_model = AscentResponse)
-def create_ascent_endpoint(route_id: int, ascent: AscentCreate, db: Session = Depends(get_db)):
+def create_ascent_endpoint(route_id: int, ascent: AscentCreate,
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        ascent_db = a_s.create_ascent(route_id, ascent, db)
+        ascent_db = a_s.create_ascent(route_id, current_user.id, ascent, db)
         db.commit()
         db.refresh(ascent_db)
         return ascent_db
     except ValueError as e:
         db.rollback()
-        HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/{ascent_id}", response_model=AscentResponse)
 def get_ascent_endpoint(route_id: int, ascent_id, db: Session = Depends(get_db)):
