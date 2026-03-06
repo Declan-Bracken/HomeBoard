@@ -29,7 +29,6 @@ function ActivityCalendar({ ascents }) {
   const today = new Date()
   const [hoveredDay, setHoveredDay] = useState(null)
 
-  // Build date → ascents map
   const dateMap = useMemo(() => {
     const map = {}
     for (const a of ascents) {
@@ -39,40 +38,25 @@ function ActivityCalendar({ ascents }) {
     return map
   }, [ascents])
 
-  // Build 52 weeks of days ending today
   const weeks = useMemo(() => {
     const days = []
     const end = new Date(today)
     end.setHours(0,0,0,0)
-    // Go back to the start of the week (Monday)
     const startOffset = (end.getDay() + 6) % 7
     const start = new Date(end)
     start.setDate(start.getDate() - 364 - startOffset)
-
     const cur = new Date(start)
-    while (cur <= end) {
-      days.push(new Date(cur))
-      cur.setDate(cur.getDate() + 1)
-    }
-
-    // Group into weeks
+    while (cur <= end) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1) }
     const result = []
-    for (let i = 0; i < days.length; i += 7) {
-      result.push(days.slice(i, i + 7))
-    }
+    for (let i = 0; i < days.length; i += 7) result.push(days.slice(i, i + 7))
     return result
   }, [])
 
-  // Month labels
   const monthLabels = useMemo(() => {
-    const labels = []
-    let lastMonth = -1
+    const labels = []; let lastMonth = -1
     weeks.forEach((week, wi) => {
       const month = week[0].getMonth()
-      if (month !== lastMonth) {
-        labels.push({ wi, label: MONTHS[month] })
-        lastMonth = month
-      }
+      if (month !== lastMonth) { labels.push({ wi, label: MONTHS[month] }); lastMonth = month }
     })
     return labels
   }, [weeks])
@@ -93,29 +77,21 @@ function ActivityCalendar({ ascents }) {
 
   return (
     <div className="calendar-wrap">
-      {/* Month labels */}
       <div className="calendar-months">
         <div style={{ width: 28 }} />
         <div style={{ position: 'relative', flex: 1, height: 16 }}>
           {monthLabels.map(({ wi, label }) => (
-            <span key={wi} className="month-label" style={{ left: wi * 13 }}>
-              {label}
-            </span>
+            <span key={wi} className="month-label" style={{ left: wi * 13 }}>{label}</span>
           ))}
         </div>
       </div>
 
       <div className="calendar-body">
-        {/* Day labels */}
         <div className="calendar-days">
           {DAYS.map((d, i) => (
-            <span key={d} className="day-label" style={{ opacity: i % 2 === 0 ? 0.4 : 0 }}>
-              {d}
-            </span>
+            <span key={d} className="day-label" style={{ opacity: i % 2 === 0 ? 0.4 : 0 }}>{d}</span>
           ))}
         </div>
-
-        {/* Grid */}
         <div className="calendar-grid">
           {weeks.map((week, wi) => (
             <div key={wi} className="calendar-week">
@@ -136,22 +112,19 @@ function ActivityCalendar({ ascents }) {
                     onMouseEnter={() => setHoveredDay(dateStr)}
                     onMouseLeave={() => setHoveredDay(null)}
                   >
-                    {isHovered && entries.length > 0 && (
+                    {isHovered && (
                       <div className="cell-tooltip">
                         <div className="tooltip-date">{dateStr}</div>
-                        {entries.map((e, i) => (
-                          <div key={i} className="tooltip-entry">
-                            <span style={{ color: gradeColor(e.grade) }}>{e.grade}</span>
-                            {' '}{e.route_name}
-                            <span className="tooltip-wall"> · {e.wall_name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {isHovered && entries.length === 0 && (
-                      <div className="cell-tooltip">
-                        <div className="tooltip-date">{dateStr}</div>
-                        <div style={{ color: 'rgba(245,240,235,0.3)', fontSize: 11 }}>No sends</div>
+                        {entries.length === 0
+                          ? <div style={{ color: 'rgba(245,240,235,0.3)', fontSize: 11 }}>No sends</div>
+                          : entries.map((e, i) => (
+                            <div key={i} className="tooltip-entry">
+                              <span style={{ color: gradeColor(e.grade) }}>{e.grade}</span>
+                              {' '}{e.route_name}
+                              <span className="tooltip-wall"> · {e.wall_name}</span>
+                            </div>
+                          ))
+                        }
                       </div>
                     )}
                   </div>
@@ -162,7 +135,6 @@ function ActivityCalendar({ ascents }) {
         </div>
       </div>
 
-      {/* Legend */}
       <div className="calendar-legend">
         <span className="legend-label">Less</span>
         {['V0','V3','V6','V9','V12'].map(g => (
@@ -196,56 +168,62 @@ const styles = `
   .profile-nav {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 40px; height: 60px;
+    padding: 0 20px; height: 56px;
     background: rgba(15,14,13,0.85); backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
   }
-  .nav-left { display: flex; align-items: center; gap: 16px; }
-  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; }
+  .nav-left { display: flex; align-items: center; gap: 12px; }
+  .nav-back {
+    background: none; border: none; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4);
+    cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px;
+  }
   .nav-back:hover { color: #ff6428; }
   .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.08em; }
+  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; }
   .nav-logo span { color: #ff6428; }
 
-  /* Main layout */
-  .profile-main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 48px 40px 80px; display: flex; flex-direction: column; gap: 40px; }
+  /* Main */
+  .profile-main {
+    position: relative; z-index: 1; max-width: 1100px; margin: 0 auto;
+    padding: 28px 20px 80px; display: flex; flex-direction: column; gap: 36px;
+  }
 
   /* Hero */
-  .profile-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .profile-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   .profile-identity { display: flex; flex-direction: column; gap: 6px; }
 
   .profile-avatar {
-    width: 64px; height: 64px; border-radius: 2px;
+    width: 56px; height: 56px; border-radius: 2px;
     background: linear-gradient(135deg, rgba(255,100,40,0.2), rgba(255,100,40,0.05));
     border: 1px solid rgba(255,100,40,0.2);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.05em;
-    color: #ff6428; margin-bottom: 14px;
+    font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.05em;
+    color: #ff6428; margin-bottom: 12px;
   }
 
-  .profile-username { font-family: 'Bebas Neue', sans-serif; font-size: 52px; letter-spacing: 0.03em; line-height: 0.9; }
+  .profile-username { font-family: 'Bebas Neue', sans-serif; font-size: 44px; letter-spacing: 0.03em; line-height: 0.9; }
   .profile-since { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.3); letter-spacing: 0.06em; }
 
   /* Stat pills */
-  .profile-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+  .profile-stats { display: flex; gap: 10px; flex-wrap: wrap; }
 
   .stat-pill {
     background: #161412; border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 2px; padding: 14px 20px;
-    display: flex; flex-direction: column; gap: 4px; min-width: 110px;
+    border-radius: 2px; padding: 12px 16px;
+    display: flex; flex-direction: column; gap: 4px; min-width: 90px;
   }
-
-  .stat-pill-value { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 0.03em; line-height: 1; }
-  .stat-pill-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.35); }
+  .stat-pill-value { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.03em; line-height: 1; }
+  .stat-pill-label { font-size: 9px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.35); }
 
   /* Section */
-  .profile-section { display: flex; flex-direction: column; gap: 16px; }
-  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); }
-  .section-divider { height: 1px; background: rgba(255,255,255,0.05); margin-bottom: 4px; }
+  .profile-section { display: flex; flex-direction: column; gap: 14px; }
+  .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); }
+  .section-divider { height: 1px; background: rgba(255,255,255,0.05); }
 
   /* Calendar */
   .calendar-wrap { display: flex; flex-direction: column; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .calendar-months { display: flex; gap: 4px; padding-left: 0; }
+  .calendar-months { display: flex; gap: 4px; }
   .month-label { position: absolute; font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.3); letter-spacing: 0.06em; white-space: nowrap; }
   .calendar-body { display: flex; gap: 4px; }
   .calendar-days { display: flex; flex-direction: column; gap: 2px; padding-top: 18px; width: 28px; flex-shrink: 0; }
@@ -262,11 +240,9 @@ const styles = `
   .cell-tooltip {
     position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
     background: #1e1b18; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 240px;
-    z-index: 20; pointer-events: none;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 220px;
+    z-index: 20; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   }
-
   .tooltip-date { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; color: rgba(245,240,235,0.4); margin-bottom: 4px; text-transform: uppercase; }
   .tooltip-entry { font-size: 12px; font-weight: 300; color: #f5f0eb; line-height: 1.6; }
   .tooltip-wall { color: rgba(245,240,235,0.35); }
@@ -275,54 +251,67 @@ const styles = `
   .legend-label { font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.25); margin: 0 4px; }
   .legend-cell { width: 11px; height: 11px; border-radius: 2px; }
 
-  /* Recent ascents table */
+  /* Ascents table */
   .ascents-table { display: flex; flex-direction: column; gap: 2px; }
 
   .ascent-row {
-    display: grid; grid-template-columns: 90px 1fr 1fr 60px 80px;
-    gap: 16px; align-items: center;
-    padding: 12px 16px; border-radius: 2px;
+    display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px;
+    gap: 12px; align-items: center;
+    padding: 11px 14px; border-radius: 2px;
     background: #161412; border: 1px solid rgba(255,255,255,0.04);
-    transition: border-color 0.2s, background 0.15s;
     font-size: 13px; font-weight: 300;
+    transition: border-color 0.2s, background 0.15s;
   }
   .ascent-row:hover { background: #1a1714; border-color: rgba(255,255,255,0.08); }
 
   .ascent-row-header {
-    display: grid; grid-template-columns: 90px 1fr 1fr 60px 80px;
-    gap: 16px; padding: 0 16px 8px;
+    display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px;
+    gap: 12px; padding: 0 14px 8px;
     font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
     text-transform: uppercase; color: rgba(245,240,235,0.25);
   }
 
   .grade-chip {
-    font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.04em;
-    padding: 2px 8px; border-radius: 2px; display: inline-block;
+    font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.04em;
+    padding: 2px 7px; border-radius: 2px; display: inline-block;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
   }
-
   .quality-stars { color: #ffb347; font-size: 11px; letter-spacing: 1px; }
 
-  .attempts-badge {
-    font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.4);
-  }
-
-  /* Empty */
-  .empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 2px; color: rgba(245,240,235,0.2); }
+  /* Empty / loading */
+  .empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 2px; color: rgba(245,240,235,0.2); }
   .empty-icon { font-size: 28px; opacity: 0.3; }
-  .empty-label { font-size: 13px; font-weight: 300; }
+  .empty-label { font-size: 13px; font-weight: 300; text-align: center; }
 
-  /* Loading */
   .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 80px; }
   .loading-spinner { width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.08); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-label { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); }
 
-  @media (max-width: 700px) {
-    .profile-hero { flex-direction: column; align-items: flex-start; }
-    .ascent-row, .ascent-row-header { grid-template-columns: 80px 1fr 48px; }
-    .ascent-row > *:nth-child(3), .ascent-row-header > *:nth-child(3),
-    .ascent-row > *:nth-child(5), .ascent-row-header > *:nth-child(5) { display: none; }
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .profile-hero { flex-direction: column; }
+    .profile-username { font-size: 36px; }
+    .profile-stats { gap: 8px; }
+    .stat-pill { min-width: calc(50% - 4px); flex: 1; }
+
+    /* Hide wall + quality columns on narrow screens */
+    .ascent-row, .ascent-row-header {
+      grid-template-columns: 76px 1fr 44px;
+    }
+    .ascent-row > *:nth-child(3),
+    .ascent-row-header > *:nth-child(3),
+    .ascent-row > *:nth-child(5),
+    .ascent-row-header > *:nth-child(5) { display: none; }
+  }
+
+  @media (min-width: 701px) {
+    .profile-nav { padding: 0 40px; height: 60px; }
+    .nav-logo { font-size: 24px; }
+    .profile-main { padding: 40px 40px 80px; gap: 44px; }
+    .profile-username { font-size: 52px; }
+    .stat-pill { padding: 14px 20px; min-width: 110px; }
+    .stat-pill-value { font-size: 32px; }
   }
 `
 
@@ -332,7 +321,6 @@ function formatDate(iso) {
 
 export default function ProfilePage() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('calendar')
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
@@ -359,38 +347,30 @@ export default function ProfilePage() {
             </div>
           ) : profile ? (
             <>
-              {/* Hero */}
               <div className="profile-hero">
                 <div className="profile-identity">
-                  <div className="profile-avatar">
-                    {profile.username[0].toUpperCase()}
-                  </div>
+                  <div className="profile-avatar">{profile.username[0].toUpperCase()}</div>
                   <div className="profile-username">{profile.username}</div>
                   <div className="profile-since">Member since {formatDate(profile.member_since)}</div>
                 </div>
 
                 <div className="profile-stats">
                   <div className="stat-pill">
-                    <span className="stat-pill-value" style={{ color: '#ff6428' }}>
-                      {profile.total_sends}
-                    </span>
+                    <span className="stat-pill-value" style={{ color: '#ff6428' }}>{profile.total_sends}</span>
                     <span className="stat-pill-label">Total Sends</span>
                   </div>
-
                   <div className="stat-pill">
                     <span className="stat-pill-value" style={{ color: profile.highest_flash_grade ? gradeColor(profile.highest_flash_grade) : 'rgba(245,240,235,0.2)' }}>
                       {profile.highest_flash_grade ?? '—'}
                     </span>
                     <span className="stat-pill-label">Highest Flash</span>
                   </div>
-
                   <div className="stat-pill">
                     <span className="stat-pill-value" style={{ color: profile.highest_redpoint_grade ? gradeColor(profile.highest_redpoint_grade) : 'rgba(245,240,235,0.2)' }}>
                       {profile.highest_redpoint_grade ?? '—'}
                     </span>
                     <span className="stat-pill-label">Highest Send</span>
                   </div>
-
                   <div className="stat-pill">
                     <span className="stat-pill-value" style={{ color: 'rgba(245,240,235,0.5)' }}>
                       {new Set(profile.ascents.map(a => a.wall_name)).size}
@@ -400,7 +380,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Activity Calendar */}
               <div className="profile-section">
                 <span className="section-title">Activity — Last 52 Weeks</span>
                 <div className="section-divider" />
@@ -414,7 +393,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* Recent Sends */}
               <div className="profile-section">
                 <span className="section-title">Send Log</span>
                 <div className="section-divider" />
@@ -438,9 +416,7 @@ export default function ProfilePage() {
                         <span style={{ fontWeight: 400 }}>{a.route_name}</span>
                         <span style={{ color: 'rgba(245,240,235,0.4)' }}>{a.wall_name}</span>
                         <span>
-                          <span className="grade-chip" style={{ color: gradeColor(a.grade) }}>
-                            {a.grade}
-                          </span>
+                          <span className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</span>
                         </span>
                         <span>
                           {a.quality

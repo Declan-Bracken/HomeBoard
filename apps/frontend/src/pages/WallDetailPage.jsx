@@ -50,7 +50,11 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
   const imageCanvasRef = useRef(null)
   const overlayCanvasRef = useRef(null)
   const rafRef = useRef(null)
-  const S = useRef({ tx: { x: 0, y: 0, z: 1 }, imgScale: 1, origWidth: 1, origHeight: 1, img: null, dragOrigin: null, isDragging: false })
+  const S = useRef({
+    tx: { x: 0, y: 0, z: 1 }, imgScale: 1, origWidth: 1, origHeight: 1,
+    img: null, dragOrigin: null, isDragging: false,
+    lastTouchDist: null, touchMoved: false,
+  })
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 })
 
   const scheduleRender = useCallback(() => {
@@ -68,11 +72,8 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
     const w = containerRef.current.offsetWidth
     const maxH = Math.min(window.innerHeight * 0.5, 500)
     const s = Math.min(w / imageWidth, maxH / imageHeight)
-    const displayW = imageWidth * s
-    const displayH = imageHeight * s
-    S.current.imgScale = s
-    S.current.origWidth = imageWidth
-    S.current.origHeight = imageHeight
+    const displayW = imageWidth * s, displayH = imageHeight * s
+    S.current.imgScale = s; S.current.origWidth = imageWidth; S.current.origHeight = imageHeight
     S.current.tx = { x: (w - displayW) / 2, y: 0, z: 1 }
     setCanvasSize({ width: w, height: displayH })
     scheduleRender()
@@ -80,6 +81,7 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
 
   useEffect(() => { scheduleRender() }, [canvasSize, scheduleRender])
 
+  // ── Mouse events ──
   useEffect(() => {
     const overlay = overlayCanvasRef.current
     if (!overlay) return
@@ -114,8 +116,68 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
     }
   }, [scheduleRender])
 
+  // ── Touch events ──
+  useEffect(() => {
+    const overlay = overlayCanvasRef.current
+    if (!overlay) return
+    const getPos = t => { const r = overlay.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top } }
+    const getDist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+    const getMid = (t1, t2) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 })
+
+    const onTouchStart = e => {
+      e.preventDefault()
+      if (e.touches.length === 1) {
+        const pos = getPos(e.touches[0])
+        S.current.touchMoved = false
+        S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
+        S.current.lastTouchDist = null
+      } else if (e.touches.length === 2) {
+        S.current.dragOrigin = null
+        S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
+        S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
+      }
+    }
+    const onTouchMove = e => {
+      e.preventDefault()
+      if (e.touches.length === 1 && S.current.dragOrigin) {
+        const pos = getPos(e.touches[0]), d = S.current.dragOrigin
+        const dx = pos.x - d.mx, dy = pos.y - d.my
+        if (Math.hypot(dx, dy) > 4) S.current.touchMoved = true
+        S.current.tx = { ...S.current.tx, x: d.tx + dx, y: d.ty + dy }
+        scheduleRender()
+      } else if (e.touches.length === 2 && S.current.lastTouchDist) {
+        const newDist = getDist(e.touches[0], e.touches[1])
+        const newMid = getMid(e.touches[0], e.touches[1])
+        const r = overlay.getBoundingClientRect()
+        const mid = { x: newMid.x - r.left, y: newMid.y - r.top }
+        const { tx } = S.current
+        const newZ = Math.min(Math.max(tx.z * (newDist / S.current.lastTouchDist), 0.3), 8)
+        S.current.tx = { z: newZ, x: mid.x - (mid.x - tx.x) * (newZ / tx.z), y: mid.y - (mid.y - tx.y) * (newZ / tx.z) }
+        S.current.lastTouchDist = newDist
+        scheduleRender()
+      }
+    }
+    const onTouchEnd = e => {
+      e.preventDefault()
+      S.current.dragOrigin = null
+      if (e.touches.length < 2) S.current.lastTouchDist = null
+    }
+    overlay.addEventListener('touchstart', onTouchStart, { passive: false })
+    overlay.addEventListener('touchmove', onTouchMove, { passive: false })
+    overlay.addEventListener('touchend', onTouchEnd, { passive: false })
+    return () => {
+      overlay.removeEventListener('touchstart', onTouchStart)
+      overlay.removeEventListener('touchmove', onTouchMove)
+      overlay.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [scheduleRender])
+
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: canvasSize.height, borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)', background: '#0a0908', overflow: 'hidden', cursor: 'grab' }}>
+    <div ref={containerRef} style={{
+      position: 'relative', width: '100%', height: canvasSize.height,
+      borderRadius: 2, border: '1px solid rgba(255,255,255,0.06)',
+      background: '#0a0908', overflow: 'hidden', cursor: 'grab', touchAction: 'none',
+    }}>
       <canvas ref={imageCanvasRef} width={canvasSize.width} height={canvasSize.height} style={{ position: 'absolute', top: 0, left: 0 }} />
       <canvas ref={overlayCanvasRef} width={canvasSize.width} height={canvasSize.height} style={{ position: 'absolute', top: 0, left: 0 }} />
     </div>
@@ -152,61 +214,64 @@ const styles = `
   .detail-nav {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 40px; height: 60px;
+    padding: 0 20px; height: 56px;
     background: rgba(15,14,13,0.85); backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
   }
 
-  .nav-left { display: flex; align-items: center; gap: 16px; }
-  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; }
+  .nav-left { display: flex; align-items: center; gap: 12px; }
+  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px; }
   .nav-back:hover { color: #ff6428; }
   .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.08em; color: #f5f0eb; }
+  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #f5f0eb; }
   .nav-logo span { color: #ff6428; }
 
-  .detail-main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 40px 60px; }
+  .detail-main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
 
   /* Header */
-  .detail-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 32px; }
-  .detail-title { font-family: 'Bebas Neue', sans-serif; font-size: 48px; line-height: 0.9; letter-spacing: 0.03em; }
-  .detail-subtitle { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.35); margin-top: 10px; }
-  .detail-actions { display: flex; gap: 8px; margin-bottom: 4px; }
+  .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  .detail-title { font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 0.9; letter-spacing: 0.03em; }
+  .detail-subtitle { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-top: 8px; }
+  .detail-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
 
-  .action-btn { background: #ff6428; border: none; border-radius: 2px; padding: 11px 20px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s, transform 0.1s; white-space: nowrap; }
+  .action-btn {
+    background: #ff6428; border: none; border-radius: 2px;
+    padding: 10px 16px; font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px; letter-spacing: 0.08em; color: #0f0e0d;
+    cursor: pointer; transition: background 0.2s; white-space: nowrap; min-height: 44px;
+  }
   .action-btn:hover { background: #ff7a40; }
-  .action-btn:active { transform: scale(0.98); }
+  .action-btn:active { opacity: 0.85; }
   .action-btn.secondary { background: none; border: 1px solid rgba(255,255,255,0.1); color: rgba(245,240,235,0.5); }
   .action-btn.secondary:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; background: none; }
 
-  .detail-divider { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 32px; }
+  .detail-divider { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 24px; }
 
   /* Two-col layout */
-  .detail-layout { display: grid; grid-template-columns: 1fr 380px; gap: 32px; align-items: start; }
+  .detail-layout { display: grid; grid-template-columns: 1fr 340px; gap: 28px; align-items: start; }
 
   /* Routes panel */
-  .routes-panel { display: flex; flex-direction: column; gap: 16px; }
-
-  .routes-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-
-  .panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.06em; color: rgba(245,240,235,0.6); }
+  .routes-panel { display: flex; flex-direction: column; gap: 12px; }
+  .routes-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+  .panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.06em; color: rgba(245,240,235,0.5); }
 
   /* Filter bar */
-  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .filter-input {
     background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 8px 12px; font-size: 12px;
+    border-radius: 2px; padding: 10px 12px; font-size: 13px;
     font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb;
-    outline: none; transition: border-color 0.2s; flex: 1; min-width: 140px;
+    outline: none; transition: border-color 0.2s; flex: 1; min-width: 120px; min-height: 44px;
   }
   .filter-input:focus { border-color: rgba(255,100,40,0.4); }
   .filter-input::placeholder { color: rgba(245,240,235,0.2); }
 
   .filter-select {
     background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 8px 12px; font-size: 12px;
+    border-radius: 2px; padding: 10px 12px; font-size: 13px;
     font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb;
-    outline: none; transition: border-color 0.2s; cursor: pointer;
+    outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px;
   }
   .filter-select:focus { border-color: rgba(255,100,40,0.4); }
   .filter-select option { background: #161412; }
@@ -214,49 +279,44 @@ const styles = `
   /* Route cards */
   .route-card {
     background: #161412; border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 2px; padding: 18px 20px;
-    display: flex; align-items: center; gap: 16px;
-    cursor: pointer; transition: border-color 0.2s, background 0.2s, transform 0.15s;
-    position: relative; overflow: hidden;
+    border-radius: 2px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    position: relative; overflow: hidden; min-height: 64px;
   }
-
   .route-card::before {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-    background: var(--grade-color, #ff6428); opacity: 0;
-    transition: opacity 0.2s;
+    background: var(--grade-color, #ff6428); opacity: 0; transition: opacity 0.2s;
   }
-
-  .route-card:hover { border-color: rgba(255,255,255,0.12); background: #1a1714; transform: translateX(2px); }
+  .route-card:hover { border-color: rgba(255,255,255,0.12); background: #1a1714; }
   .route-card:hover::before { opacity: 1; }
+  .route-card:active { background: #1e1b17; }
 
   .grade-badge {
-    font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.04em;
-    min-width: 44px; text-align: center;
-    padding: 6px 10px; border-radius: 2px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
-    flex-shrink: 0;
+    font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em;
+    min-width: 44px; text-align: center; padding: 6px 8px; border-radius: 2px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
   }
 
   .route-card-body { flex: 1; min-width: 0; }
-  .route-card-name { font-size: 15px; font-weight: 500; color: #f5f0eb; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .route-card-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .route-card-name { font-size: 14px; font-weight: 500; color: #f5f0eb; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .route-card-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .route-meta-item { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); display: flex; align-items: center; gap: 4px; }
   .route-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,100,40,0.4); }
 
-  .ascent-count { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; color: rgba(245,240,235,0.25); flex-shrink: 0; }
-  .ascent-count span { font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 300; display: block; text-align: center; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+  .ascent-count { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.04em; color: rgba(245,240,235,0.25); flex-shrink: 0; text-align: center; }
+  .ascent-count span { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 300; display: block; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
 
-  .route-arrow { color: rgba(255,100,40,0.2); font-size: 14px; transition: color 0.2s, transform 0.2s; flex-shrink: 0; }
-  .route-card:hover .route-arrow { color: #ff6428; transform: translateX(3px); }
+  .route-arrow { color: rgba(255,100,40,0.2); font-size: 14px; transition: color 0.2s; flex-shrink: 0; }
+  .route-card:hover .route-arrow { color: #ff6428; }
 
-  /* Empty/loading states */
-  .routes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px; border: 1px dashed rgba(255,255,255,0.07); border-radius: 2px; color: rgba(245,240,235,0.2); }
+  /* Empty/loading */
+  .routes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 24px; border: 1px dashed rgba(255,255,255,0.07); border-radius: 2px; color: rgba(245,240,235,0.2); }
   .routes-empty-icon { font-size: 28px; opacity: 0.3; }
-  .routes-empty p { font-size: 13px; font-weight: 300; }
+  .routes-empty p { font-size: 13px; font-weight: 300; text-align: center; }
 
   /* Wall preview panel */
-  .wall-preview-panel { display: flex; flex-direction: column; gap: 12px; }
+  .wall-preview-panel { display: flex; flex-direction: column; gap: 10px; }
   .preview-header { display: flex; align-items: center; justify-content: space-between; }
   .canvas-hint { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2); }
 
@@ -268,13 +328,31 @@ const styles = `
 
   .no-image-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px; border: 1px dashed rgba(255,255,255,0.08); border-radius: 2px; background: #161412; color: rgba(245,240,235,0.2); }
 
-  .skeleton-route { background: #161412; border: 1px solid rgba(255,255,255,0.04); border-radius: 2px; padding: 18px 20px; display: flex; gap: 16px; align-items: center; }
+  .skeleton-route { background: #161412; border: 1px solid rgba(255,255,255,0.04); border-radius: 2px; padding: 14px 16px; display: flex; gap: 14px; align-items: center; }
   .skeleton-box { border-radius: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-  @media (max-width: 800px) {
-    .detail-layout { grid-template-columns: 1fr; }
+  /* ── Responsive ── */
+  @media (max-width: 680px) {
+    .detail-main { padding: 16px 16px 80px; }
+    .detail-title { font-size: 32px; }
+    .detail-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .detail-actions { width: 100%; }
+    .action-btn { flex: 1; text-align: center; justify-content: center; }
+    .detail-layout { grid-template-columns: 1fr; gap: 20px; }
     .wall-preview-panel { order: -1; }
+    .filter-bar { flex-direction: column; }
+    .filter-input, .filter-select { width: 100%; }
+  }
+
+  @media (min-width: 681px) and (max-width: 960px) {
+    .detail-layout { grid-template-columns: 1fr 260px; gap: 20px; }
+    .detail-main { padding: 24px 24px 60px; }
+  }
+
+  @media (min-width: 961px) {
+    .detail-main { padding: 32px 40px 60px; }
+    .detail-layout { grid-template-columns: 1fr 360px; }
   }
 `
 
@@ -360,7 +438,7 @@ export default function WallDetailPage() {
             </div>
             <div className="detail-actions">
               <button className="action-btn secondary" onClick={() => navigate(`/walls/${id}`)}>↑ Re-upload</button>
-              <button className="action-btn" onClick={() => navigate(`/walls/${id}/route/new`)}>+ Create Route</button>
+              <button className="action-btn" onClick={() => navigate(`/walls/${id}/route/new`)}>+ New Route</button>
             </div>
           </div>
 
@@ -380,7 +458,6 @@ export default function WallDetailPage() {
                   <span className="panel-title">Routes</span>
                 </div>
 
-                {/* Filters */}
                 <div className="filter-bar">
                   <input
                     className="filter-input"
@@ -398,7 +475,6 @@ export default function WallDetailPage() {
                   </select>
                 </div>
 
-                {/* Route list */}
                 {routesLoading ? (
                   [1,2,3].map(i => <SkeletonRoute key={i} />)
                 ) : filteredRoutes.length === 0 ? (
@@ -447,7 +523,7 @@ export default function WallDetailPage() {
               <div className="wall-preview-panel">
                 <div className="preview-header">
                   <span className="panel-title">Wall</span>
-                  <span className="canvas-hint">Scroll to zoom · Drag to pan</span>
+                  <span className="canvas-hint">Pinch to zoom · Drag to pan</span>
                 </div>
                 {imageUrl && imageDimensions && holds ? (
                   <WallCanvas

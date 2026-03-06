@@ -132,6 +132,7 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
   const S = useRef({
     tx: { x: 0, y: 0, z: 1 }, imgScale: 1, origWidth: 1, origHeight: 1,
     img: null, isDragging: false, dragOrigin: null,
+    lastTouchDist: null, touchMoved: false,
   })
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 })
 
@@ -201,11 +202,71 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
     }
   }, [scheduleRender])
 
+  // ── Touch events ──
+  useEffect(() => {
+    const overlay = overlayCanvasRef.current
+    if (!overlay) return
+
+    const getPos = (t) => { const r = overlay.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top } }
+    const getDist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+    const getMid = (t1, t2) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 })
+
+    const onTouchStart = (e) => {
+      e.preventDefault()
+      if (e.touches.length === 1) {
+        const pos = getPos(e.touches[0])
+        S.current.touchMoved = false
+        S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
+        S.current.lastTouchDist = null
+      } else if (e.touches.length === 2) {
+        S.current.dragOrigin = null
+        S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
+        S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
+      }
+    }
+
+    const onTouchMove = (e) => {
+      e.preventDefault()
+      if (e.touches.length === 1 && S.current.dragOrigin) {
+        const pos = getPos(e.touches[0]), d = S.current.dragOrigin
+        const dx = pos.x - d.mx, dy = pos.y - d.my
+        if (Math.hypot(dx, dy) > 4) S.current.touchMoved = true
+        S.current.tx = { ...S.current.tx, x: d.tx + dx, y: d.ty + dy }
+        scheduleRender()
+      } else if (e.touches.length === 2 && S.current.lastTouchDist) {
+        const newDist = getDist(e.touches[0], e.touches[1])
+        const newMid = getMid(e.touches[0], e.touches[1])
+        const r = overlay.getBoundingClientRect()
+        const mid = { x: newMid.x - r.left, y: newMid.y - r.top }
+        const { tx } = S.current
+        const newZ = Math.min(Math.max(tx.z * (newDist / S.current.lastTouchDist), 0.3), 8)
+        S.current.tx = { z: newZ, x: mid.x - (mid.x - tx.x) * (newZ / tx.z), y: mid.y - (mid.y - tx.y) * (newZ / tx.z) }
+        S.current.lastTouchDist = newDist
+        scheduleRender()
+      }
+    }
+
+    const onTouchEnd = (e) => {
+      e.preventDefault()
+      S.current.dragOrigin = null
+      if (e.touches.length < 2) S.current.lastTouchDist = null
+    }
+
+    overlay.addEventListener('touchstart', onTouchStart, { passive: false })
+    overlay.addEventListener('touchmove', onTouchMove, { passive: false })
+    overlay.addEventListener('touchend', onTouchEnd, { passive: false })
+    return () => {
+      overlay.removeEventListener('touchstart', onTouchStart)
+      overlay.removeEventListener('touchmove', onTouchMove)
+      overlay.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [scheduleRender])
+
   return (
     <div ref={containerRef} style={{
       position: 'relative', width: '100%', height: canvasSize.height,
       borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)',
-      background: '#0a0908', overflow: 'hidden', cursor: 'grab',
+      background: '#0a0908', overflow: 'hidden', cursor: 'grab', touchAction: 'none',
     }}>
       <canvas ref={imageCanvasRef} width={canvasSize.width} height={canvasSize.height} style={{ position: 'absolute', top: 0, left: 0 }} />
       <canvas ref={overlayCanvasRef} width={canvasSize.width} height={canvasSize.height} style={{ position: 'absolute', top: 0, left: 0 }} />
@@ -501,12 +562,12 @@ export default function RouteDetailPage() {
 
   const { data: route, isLoading: routeLoading } = useQuery({
     queryKey: ['route', wallId, routeId],
-    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}/`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}`)).data
   })
 
   const { data: allHolds, isLoading: holdsLoading } = useQuery({
     queryKey: ['holds', wallId],
-    queryFn: async () => (await api.get(`/walls/${wallId}/holds/`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}/holds`)).data
   })
 
   const { data: routeHolds, isLoading: routeHoldsLoading } = useQuery({
@@ -522,7 +583,7 @@ export default function RouteDetailPage() {
   // Load image
   useEffect(() => {
     if (!wall?.image_path) return
-    api.get(`/walls/${wallId}/image/`, { responseType: 'blob' }).then(res => {
+    api.get(`/walls/${wallId}/image`, { responseType: 'blob' }).then(res => {
       const url = URL.createObjectURL(res.data)
       setImageUrl(url)
       const img = new window.Image()
@@ -603,7 +664,7 @@ export default function RouteDetailPage() {
                     <h1 className="rd-title">{route?.name}</h1>
                     <span className="rd-grade" style={{ color: gradeCol }}> · {route?.grade}</span>
                   </div>
-                  <span className="rd-hint">Scroll to zoom · Drag to pan</span>
+                  <span className="rd-hint">Pinch to zoom · Drag to pan</span>
                 </div>
 
                 {/* Legend */}

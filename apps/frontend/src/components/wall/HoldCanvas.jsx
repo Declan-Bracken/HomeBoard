@@ -18,7 +18,7 @@ function downsampleImage(src, maxSize) {
   })
 }
 
-// ─── Point-in-polygon hit test (screen space) ─────────────────────────────────
+// ─── Point-in-polygon hit test ────────────────────────────────────────────────
 function hitTest(screenX, screenY, polygon, imgScale, tx) {
   if (!polygon || polygon.length < 3) return false
   const pts = polygon.map(p => ({
@@ -29,26 +29,21 @@ function hitTest(screenX, screenY, polygon, imgScale, tx) {
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
     const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y
     if ((yi > screenY) !== (yj > screenY) &&
-        screenX < ((xj - xi) * (screenY - yi)) / (yj - yi) + xi) {
+        screenX < ((xj - xi) * (screenY - yi)) / (yj - yi) + xi)
       inside = !inside
-    }
   }
   return inside
 }
 
-// ─── Main render function ─────────────────────────────────────────────────────
+// ─── Render ───────────────────────────────────────────────────────────────────
 function render(imageCanvas, overlayCanvas, img, holds, state) {
   if (!imageCanvas || !overlayCanvas) return
   const { tx, imgScale, selectedIds, mode, drawPts, mousePos, origWidth, origHeight } = state
 
-  // Image layer
   const ic = imageCanvas.getContext('2d')
   ic.clearRect(0, 0, imageCanvas.width, imageCanvas.height)
-  if (img) {
-    ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
-  }
+  if (img) ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
 
-  // Overlay layer
   const oc = overlayCanvas.getContext('2d')
   oc.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
 
@@ -57,9 +52,8 @@ function render(imageCanvas, overlayCanvas, img, holds, state) {
     if (!pts || pts.length < 2) continue
     oc.beginPath()
     oc.moveTo(pts[0].x * imgScale * tx.z + tx.x, pts[0].y * imgScale * tx.z + tx.y)
-    for (let i = 1; i < pts.length; i++) {
+    for (let i = 1; i < pts.length; i++)
       oc.lineTo(pts[i].x * imgScale * tx.z + tx.x, pts[i].y * imgScale * tx.z + tx.y)
-    }
     oc.closePath()
     const sel = selectedIds.has(hold._id)
     const isNew = !!hold.isNew
@@ -72,14 +66,12 @@ function render(imageCanvas, overlayCanvas, img, holds, state) {
     oc.shadowBlur = 0
   }
 
-  // In-progress polygon
   if (mode === 'draw' && drawPts.length > 0) {
     const all = mousePos ? [...drawPts, mousePos] : drawPts
     oc.beginPath()
     oc.moveTo(all[0].x * imgScale * tx.z + tx.x, all[0].y * imgScale * tx.z + tx.y)
-    for (let i = 1; i < all.length; i++) {
+    for (let i = 1; i < all.length; i++)
       oc.lineTo(all[i].x * imgScale * tx.z + tx.x, all[i].y * imgScale * tx.z + tx.y)
-    }
     oc.strokeStyle = 'rgba(100,200,255,0.85)'
     oc.lineWidth = 1.5
     oc.setLineDash([4, 4])
@@ -92,7 +84,6 @@ function render(imageCanvas, overlayCanvas, img, holds, state) {
       drawPts.length >= 3 ? 7 : 4, 0, Math.PI * 2)
     oc.fillStyle = drawPts.length >= 3 ? '#64c8ff' : 'white'
     oc.fill()
-
     for (const p of drawPts) {
       oc.beginPath()
       oc.arc(p.x * imgScale * tx.z + tx.x, p.y * imgScale * tx.z + tx.y, 3, 0, Math.PI * 2)
@@ -110,17 +101,11 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
   const S = useRef({
     tx: { x: 0, y: 0, z: 1 },
-    imgScale: 1,
-    origWidth: 1,
-    origHeight: 1,
-    holds: [],
-    selectedIds: new Set(),
-    mode: 'select',
-    drawPts: [],
-    mousePos: null,
-    img: null,
-    isDragging: false,
-    dragOrigin: null,
+    imgScale: 1, origWidth: 1, origHeight: 1,
+    holds: [], selectedIds: new Set(),
+    mode: 'select', drawPts: [], mousePos: null,
+    img: null, isDragging: false, dragOrigin: null,
+    lastTouchDist: null, touchMoved: false,
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -128,99 +113,103 @@ export default function HoldCanvas({ preview, onConfirm }) {
   const [uiMode, setUiMode] = useState('select')
   const [uiDrawPts, setUiDrawPts] = useState([])
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 })
-
   const nextId = useRef(1000)
   const rafRef = useRef(null)
 
   const scheduleRender = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      render(imageCanvasRef.current, overlayCanvasRef.current, S.current.img, S.current.holds, S.current)
-    })
+    rafRef.current = requestAnimationFrame(() =>
+      render(imageCanvasRef.current, overlayCanvasRef.current, S.current.img, S.current.holds, S.current))
   }, [])
 
   const setMode = useCallback((m) => {
-    S.current.mode = m
-    S.current.drawPts = []
-    S.current.mousePos = null
-    setUiMode(m)
-    setUiDrawPts([])
-    scheduleRender()
+    S.current.mode = m; S.current.drawPts = []; S.current.mousePos = null
+    setUiMode(m); setUiDrawPts([]); scheduleRender()
   }, [scheduleRender])
 
   const toggleSelected = useCallback((id) => {
     const next = new Set(S.current.selectedIds)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    S.current.selectedIds = next
-    setUiSelectedCount(next.size)
-    scheduleRender()
+    if (next.has(id)) next.delete(id); else next.add(id)
+    S.current.selectedIds = next; setUiSelectedCount(next.size); scheduleRender()
   }, [scheduleRender])
 
   const clearSelected = useCallback(() => {
-    S.current.selectedIds = new Set()
-    setUiSelectedCount(0)
-    scheduleRender()
+    S.current.selectedIds = new Set(); setUiSelectedCount(0); scheduleRender()
   }, [scheduleRender])
 
   const setHolds = useCallback((updater) => {
     const next = typeof updater === 'function' ? updater(S.current.holds) : updater
-    S.current.holds = next
-    setUiHolds(next)
-    scheduleRender()
+    S.current.holds = next; setUiHolds(next); scheduleRender()
   }, [scheduleRender])
 
-  // ── Setup: image + scale ──
   useEffect(() => {
     const src = `data:image/jpeg;base64,${preview.image_b64}`
-    downsampleImage(src, 1200).then(img => {
-      S.current.img = img
-      scheduleRender()
-    })
+    downsampleImage(src, 1200).then(img => { S.current.img = img; scheduleRender() })
   }, [preview.image_b64, scheduleRender])
 
   useEffect(() => {
     if (!containerRef.current) return
     const w = containerRef.current.offsetWidth
     const maxH = Math.min(window.innerHeight * 0.75, 700)
-    const scaleByWidth = w / preview.image_width
-    const scaleByHeight = maxH / preview.image_height
-    const s = Math.min(scaleByWidth, scaleByHeight)
-    const displayW = preview.image_width * s
-    const displayH = preview.image_height * s
-
-    S.current.imgScale = s
-    S.current.origWidth = preview.image_width
-    S.current.origHeight = preview.image_height
+    const s = Math.min(w / preview.image_width, maxH / preview.image_height)
+    const displayW = preview.image_width * s, displayH = preview.image_height * s
+    S.current.imgScale = s; S.current.origWidth = preview.image_width; S.current.origHeight = preview.image_height
     S.current.tx = { x: (w - displayW) / 2, y: 0, z: 1 }
-
-    setCanvasSize({ width: w, height: displayH })
-    scheduleRender()
+    setCanvasSize({ width: w, height: displayH }); scheduleRender()
   }, [preview.image_width, preview.image_height, scheduleRender])
 
-  useEffect(() => {
-    scheduleRender()
-  }, [canvasSize, scheduleRender])
+  useEffect(() => { scheduleRender() }, [canvasSize, scheduleRender])
 
   useEffect(() => {
-    const initial = preview.holds.map((h, i) => ({ ...h, _id: i }))
-    setHolds(initial)
+    setHolds(preview.holds.map((h, i) => ({ ...h, _id: i })))
   }, [preview.holds, setHolds])
 
-  // ── Pointer events ──
+  // ── Shared tap handler ──
+  const handleTap = useCallback((pos) => {
+    const { mode, holds, imgScale, tx, drawPts } = S.current
+    const toImg = (sx, sy) => ({ x: (sx - tx.x) / (imgScale * tx.z), y: (sy - tx.y) / (imgScale * tx.z) })
+
+    if (mode === 'select') {
+      let hit = null
+      for (let i = holds.length - 1; i >= 0; i--) {
+        if (hitTest(pos.x, pos.y, holds[i].polygon, imgScale, tx)) { hit = holds[i]._id; break }
+      }
+      if (hit !== null) toggleSelected(hit); else clearSelected()
+      return
+    }
+
+    if (mode === 'draw') {
+      const imgPos = toImg(pos.x, pos.y)
+      if (drawPts.length >= 3) {
+        const fp = drawPts[0]
+        const fpScreen = { x: fp.x * imgScale * tx.z + tx.x, y: fp.y * imgScale * tx.z + tx.y }
+        const closeRadius = 'ontouchstart' in window ? 20 : 12
+        if (Math.hypot(pos.x - fpScreen.x, pos.y - fpScreen.y) < closeRadius) {
+          const newHold = {
+            _id: nextId.current++, isNew: true, polygon: drawPts,
+            x_center: Math.round(drawPts.reduce((s, p) => s + p.x, 0) / drawPts.length),
+            y_center: Math.round(drawPts.reduce((s, p) => s + p.y, 0) / drawPts.length),
+            x_min: Math.round(Math.min(...drawPts.map(p => p.x))),
+            x_max: Math.round(Math.max(...drawPts.map(p => p.x))),
+            y_min: Math.round(Math.min(...drawPts.map(p => p.y))),
+            y_max: Math.round(Math.max(...drawPts.map(p => p.y))),
+            confidence: null,
+          }
+          S.current.drawPts = []; S.current.mousePos = null
+          setUiDrawPts([]); setHolds(prev => [...prev, newHold]); return
+        }
+      }
+      S.current.drawPts = [...drawPts, imgPos]
+      setUiDrawPts(S.current.drawPts); scheduleRender()
+    }
+  }, [toggleSelected, clearSelected, setHolds, scheduleRender])
+
+  // ── Mouse events ──
   useEffect(() => {
     const overlay = overlayCanvasRef.current
     if (!overlay) return
-
-    const getPos = (e) => {
-      const r = overlay.getBoundingClientRect()
-      return { x: e.clientX - r.left, y: e.clientY - r.top }
-    }
-
-    const toImg = (sx, sy) => {
-      const { tx, imgScale } = S.current
-      return { x: (sx - tx.x) / (imgScale * tx.z), y: (sy - tx.y) / (imgScale * tx.z) }
-    }
+    const getPos = (e) => { const r = overlay.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
+    const toImg = (sx, sy) => { const { tx, imgScale } = S.current; return { x: (sx - tx.x) / (imgScale * tx.z), y: (sy - tx.y) / (imgScale * tx.z) } }
 
     const onMouseDown = (e) => {
       if (S.current.mode !== 'select') return
@@ -228,103 +217,31 @@ export default function HoldCanvas({ preview, onConfirm }) {
       S.current.isDragging = false
       S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
     }
-
     const onMouseMove = (e) => {
       const pos = getPos(e)
       if (S.current.mode === 'select' && S.current.dragOrigin) {
-        const d = S.current.dragOrigin
-        const dx = pos.x - d.mx
-        const dy = pos.y - d.my
+        const d = S.current.dragOrigin, dx = pos.x - d.mx, dy = pos.y - d.my
         if (Math.hypot(dx, dy) > 3) S.current.isDragging = true
-        S.current.tx = { ...S.current.tx, x: d.tx + dx, y: d.ty + dy }
-        scheduleRender()
-        return
+        S.current.tx = { ...S.current.tx, x: d.tx + dx, y: d.ty + dy }; scheduleRender(); return
       }
-      if (S.current.mode === 'draw') {
-        S.current.mousePos = toImg(pos.x, pos.y)
-        scheduleRender()
-      }
+      if (S.current.mode === 'draw') { S.current.mousePos = toImg(pos.x, pos.y); scheduleRender() }
     }
-
-    const onMouseUp = () => {
-      S.current.dragOrigin = null
-    }
-
-    const onClick = (e) => {
-      if (S.current.isDragging) {
-        S.current.isDragging = false
-        return
-      }
-      const pos = getPos(e)
-      const { mode, holds, imgScale, tx, drawPts } = S.current
-
-      if (mode === 'select') {
-        let hit = null
-        for (let i = holds.length - 1; i >= 0; i--) {
-          if (hitTest(pos.x, pos.y, holds[i].polygon, imgScale, tx)) {
-            hit = holds[i]._id; break
-          }
-        }
-        if (hit !== null) toggleSelected(hit)
-        else clearSelected()
-        return
-      }
-
-      if (mode === 'draw') {
-        const imgPos = toImg(pos.x, pos.y)
-        if (drawPts.length >= 3) {
-          const fp = drawPts[0]
-          const fpScreen = {
-            x: fp.x * imgScale * tx.z + tx.x,
-            y: fp.y * imgScale * tx.z + tx.y,
-          }
-          if (Math.hypot(pos.x - fpScreen.x, pos.y - fpScreen.y) < 12) {
-            const newHold = {
-              _id: nextId.current++,
-              isNew: true,
-              polygon: drawPts,
-              x_center: Math.round(drawPts.reduce((s, p) => s + p.x, 0) / drawPts.length),
-              y_center: Math.round(drawPts.reduce((s, p) => s + p.y, 0) / drawPts.length),
-              x_min: Math.round(Math.min(...drawPts.map(p => p.x))),
-              x_max: Math.round(Math.max(...drawPts.map(p => p.x))),
-              y_min: Math.round(Math.min(...drawPts.map(p => p.y))),
-              y_max: Math.round(Math.max(...drawPts.map(p => p.y))),
-              confidence: null,
-            }
-            S.current.drawPts = []
-            S.current.mousePos = null
-            setUiDrawPts([])
-            setHolds(prev => [...prev, newHold])
-            return
-          }
-        }
-        S.current.drawPts = [...drawPts, imgPos]
-        setUiDrawPts(S.current.drawPts)
-        scheduleRender()
-      }
-    }
-
+    const onMouseUp = () => { S.current.dragOrigin = null }
+    const onClick = (e) => { if (S.current.isDragging) { S.current.isDragging = false; return }; handleTap(getPos(e)) }
     const onWheel = (e) => {
       e.preventDefault()
-      const pos = getPos(e)
-      const { tx } = S.current
+      const pos = getPos(e), { tx } = S.current
       const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08
       const newZ = Math.min(Math.max(tx.z * factor, 0.3), 8)
-      S.current.tx = {
-        z: newZ,
-        x: pos.x - (pos.x - tx.x) * (newZ / tx.z),
-        y: pos.y - (pos.y - tx.y) * (newZ / tx.z),
-      }
+      S.current.tx = { z: newZ, x: pos.x - (pos.x - tx.x) * (newZ / tx.z), y: pos.y - (pos.y - tx.y) * (newZ / tx.z) }
       scheduleRender()
     }
-
     overlay.addEventListener('mousedown', onMouseDown)
     overlay.addEventListener('mousemove', onMouseMove)
     overlay.addEventListener('mouseup', onMouseUp)
     overlay.addEventListener('mouseleave', onMouseUp)
     overlay.addEventListener('click', onClick)
     overlay.addEventListener('wheel', onWheel, { passive: false })
-
     return () => {
       overlay.removeEventListener('mousedown', onMouseDown)
       overlay.removeEventListener('mousemove', onMouseMove)
@@ -333,14 +250,78 @@ export default function HoldCanvas({ preview, onConfirm }) {
       overlay.removeEventListener('click', onClick)
       overlay.removeEventListener('wheel', onWheel)
     }
-  }, [scheduleRender, toggleSelected, clearSelected, setHolds])
+  }, [scheduleRender, handleTap])
 
-  // ── Keyboard shortcuts ──
+  // ── Touch events ──
+  useEffect(() => {
+    const overlay = overlayCanvasRef.current
+    if (!overlay) return
+
+    const getPos = (t) => { const r = overlay.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top } }
+    const getDist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
+    const getMid = (t1, t2) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 })
+
+    const onTouchStart = (e) => {
+      e.preventDefault()
+      if (e.touches.length === 1) {
+        const pos = getPos(e.touches[0])
+        S.current.touchMoved = false
+        S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
+        S.current.lastTouchDist = null
+      } else if (e.touches.length === 2) {
+        S.current.dragOrigin = null
+        S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
+        S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
+      }
+    }
+
+    const onTouchMove = (e) => {
+      e.preventDefault()
+      if (e.touches.length === 1 && S.current.dragOrigin) {
+        const pos = getPos(e.touches[0]), d = S.current.dragOrigin
+        const dx = pos.x - d.mx, dy = pos.y - d.my
+        if (Math.hypot(dx, dy) > 4) S.current.touchMoved = true
+        S.current.tx = { ...S.current.tx, x: d.tx + dx, y: d.ty + dy }
+        scheduleRender()
+      } else if (e.touches.length === 2 && S.current.lastTouchDist) {
+        const newDist = getDist(e.touches[0], e.touches[1])
+        const newMid = getMid(e.touches[0], e.touches[1])
+        const r = overlay.getBoundingClientRect()
+        const mid = { x: newMid.x - r.left, y: newMid.y - r.top }
+        const { tx } = S.current
+        const newZ = Math.min(Math.max(tx.z * (newDist / S.current.lastTouchDist), 0.3), 8)
+        S.current.tx = { z: newZ, x: mid.x - (mid.x - tx.x) * (newZ / tx.z), y: mid.y - (mid.y - tx.y) * (newZ / tx.z) }
+        S.current.lastTouchDist = newDist
+        scheduleRender()
+      }
+    }
+
+    const onTouchEnd = (e) => {
+      e.preventDefault()
+      if (e.changedTouches.length === 1 && e.touches.length === 0) {
+        const wasTap = !S.current.touchMoved
+        S.current.dragOrigin = null
+        S.current.lastTouchDist = null
+        if (wasTap) handleTap(getPos(e.changedTouches[0]))
+      }
+      if (e.touches.length < 2) S.current.lastTouchDist = null
+    }
+
+    overlay.addEventListener('touchstart', onTouchStart, { passive: false })
+    overlay.addEventListener('touchmove', onTouchMove, { passive: false })
+    overlay.addEventListener('touchend', onTouchEnd, { passive: false })
+    return () => {
+      overlay.removeEventListener('touchstart', onTouchStart)
+      overlay.removeEventListener('touchmove', onTouchMove)
+      overlay.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [scheduleRender, handleTap])
+
+  // ── Keyboard ──
   useEffect(() => {
     const handler = (e) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && S.current.selectedIds.size > 0) {
-        setHolds(prev => prev.filter(h => !S.current.selectedIds.has(h._id)))
-        clearSelected()
+        setHolds(prev => prev.filter(h => !S.current.selectedIds.has(h._id))); clearSelected()
       }
       if (e.key === 'Escape') setMode('select')
     }
@@ -350,30 +331,27 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
   const handleConfirm = () => {
     onConfirm(S.current.holds.map(h => ({
-      x_min: h.x_min, x_max: h.x_max,
-      y_min: h.y_min, y_max: h.y_max,
+      x_min: h.x_min, x_max: h.x_max, y_min: h.y_min, y_max: h.y_max,
       x_center: h.x_center, y_center: h.y_center,
-      confidence: h.confidence ?? null,
-      polygon: h.polygon,
+      confidence: h.confidence ?? null, polygon: h.polygon,
     })))
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={toolbarStyle}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <ToolButton active={uiMode === 'select'} onClick={() => setMode('select')}>↖ Select</ToolButton>
           <ToolButton active={uiMode === 'draw'} onClick={() => setMode('draw')}>✏ Draw Hold</ToolButton>
           {uiMode === 'draw' && uiDrawPts.length > 0 && (
             <ToolButton onClick={() => { S.current.drawPts = []; setUiDrawPts([]); scheduleRender() }}>✕ Cancel</ToolButton>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={statStyle}>{uiHolds.length} holds</span>
           {uiSelectedCount > 0 && (
             <ToolButton danger onClick={() => {
-              setHolds(prev => prev.filter(h => !S.current.selectedIds.has(h._id)))
-              clearSelected()
+              setHolds(prev => prev.filter(h => !S.current.selectedIds.has(h._id))); clearSelected()
             }}>
               🗑 Delete {uiSelectedCount > 1 ? `${uiSelectedCount} Holds` : 'Hold'}
             </ToolButton>
@@ -384,16 +362,16 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
       <div style={hintStyle}>
         {uiMode === 'select'
-          ? 'Click holds to select (multi-select supported). Delete key or button to remove. Scroll to zoom, drag to pan.'
-          : uiDrawPts.length === 0 ? 'Click to place the first point.'
-          : uiDrawPts.length < 3 ? `${uiDrawPts.length} point${uiDrawPts.length > 1 ? 's' : ''} — keep clicking.`
-          : 'Click near the first point (blue dot) to close the polygon.'}
+          ? 'Tap holds to select · Pinch to zoom · Drag to pan'
+          : uiDrawPts.length === 0 ? 'Tap to place the first point'
+          : uiDrawPts.length < 3 ? `${uiDrawPts.length} point${uiDrawPts.length > 1 ? 's' : ''} — keep tapping`
+          : 'Tap near the first point (blue dot) to close the polygon'}
       </div>
 
       <div ref={containerRef} style={{
         position: 'relative', width: '100%', height: canvasSize.height,
         borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)',
-        background: '#0a0908', overflow: 'hidden',
+        background: '#0a0908', overflow: 'hidden', touchAction: 'none',
       }}>
         <canvas ref={imageCanvasRef} width={canvasSize.width} height={canvasSize.height}
           style={{ position: 'absolute', top: 0, left: 0 }} />
@@ -410,7 +388,7 @@ const toolbarStyle = {
 }
 const hintStyle = {
   fontSize: 12, fontWeight: 300,
-  color: 'rgba(245, 240, 235, 0.35)', fontFamily: 'DM Sans, sans-serif',
+  color: 'rgba(245,240,235,0.35)', fontFamily: 'DM Sans, sans-serif',
 }
 const statStyle = {
   fontSize: 12, fontWeight: 500, letterSpacing: '0.1em',
@@ -425,7 +403,7 @@ function ToolButton({ children, active, danger, confirm, onClick }) {
       borderRadius: 2, padding: '7px 14px', fontSize: 12,
       fontFamily: 'DM Sans, sans-serif', fontWeight: 500, letterSpacing: '0.05em',
       color: confirm ? '#0f0e0d' : danger ? '#ff6060' : active ? '#ff6428' : 'rgba(245,240,235,0.6)',
-      cursor: 'pointer', transition: 'all 0.15s',
+      cursor: 'pointer', transition: 'all 0.15s', minHeight: 44,
     }}>
       {children}
     </button>
