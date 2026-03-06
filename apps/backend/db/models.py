@@ -7,6 +7,10 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 class Base(DeclarativeBase):
     pass
 
+class PrivacyEnum(str, enum.Enum):
+    Private = "Private"
+    Public = "Public"
+
 class Wall(Base):
     __tablename__ = "walls"
     __table_args__ = (
@@ -17,14 +21,15 @@ class Wall(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     image_path: Mapped[str] = mapped_column(String, nullable=True)
+    privacy: Mapped[PrivacyEnum] = mapped_column(Enum(PrivacyEnum), nullable=False, default=PrivacyEnum.Private)
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), index = True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relations
     holds: Mapped[List["Hold"]] = relationship("Hold", back_populates="wall", cascade="all, delete-orphan")
     routes: Mapped[List["Route"]] = relationship("Route", back_populates="wall", cascade="all, delete-orphan")
     user: Mapped["User"] = relationship("User", back_populates="created_walls") # wall only has one creator
-
+    members: Mapped[List["WallMember"]] = relationship("WallMember", back_populates="wall", cascade="all, delete-orphan")
 # Likely want a wall versions table to store different hold configurations for the same wall without needing to register a new wall
 
 # defines the set of optional grades a route can take on
@@ -59,7 +64,7 @@ class Route(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     grade: Mapped[GradeEnum] = mapped_column(Enum(GradeEnum), nullable=True, default = "Unknown")
     created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     description: Mapped[Optional[str]] = mapped_column(String, nullable = True)
     ascent_count: Mapped[int] = mapped_column(Integer, nullable = False, default = 0, server_default="0")
 
@@ -125,11 +130,12 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relations
     ascents: Mapped[List["Ascent"]] = relationship('Ascent', back_populates='users')
     created_walls: Mapped[List["Wall"]] = relationship("Wall", back_populates='user')
+    walls:  Mapped[List["WallMember"]] = relationship("WallMember", back_populates='member', cascade="all, delete-orphan")
     created_routes: Mapped[List["Route"]] = relationship("Route", back_populates='creator')
 
 class Ascent(Base):
@@ -139,7 +145,7 @@ class Ascent(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     route_id: Mapped[int] = mapped_column(Integer, ForeignKey("routes.id"), index=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     quality: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
     suggested_grade: Mapped[Optional[GradeEnum]] = mapped_column(Enum(GradeEnum), nullable=True)
     n_attempts: Mapped[Optional[int]] = mapped_column(Integer, nullable = True)
@@ -149,3 +155,22 @@ class Ascent(Base):
     users: Mapped["User"] = relationship('User', back_populates="ascents")
     route: Mapped["Route"] = relationship('Route', back_populates="ascents")
 
+class RoleEnum(str, enum.Enum):
+    owner = "owner"
+    member = "member"
+
+class WallMember(Base):
+    __tablename__ = "wallmembers"
+    __table_args__ = (
+        UniqueConstraint("wall_id", "user_id", name="uq_wall_user"),
+    )
+
+    # Columns:
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index = True)
+    wall_id: Mapped[int] = mapped_column(Integer, ForeignKey("walls.id"), index = True, nullable = False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index = True, nullable = False)
+    role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), nullable=False, default=RoleEnum.member)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    member: Mapped["User"] = relationship('User', back_populates="walls")
+    wall: Mapped["Wall"] = relationship('Wall', back_populates="members")

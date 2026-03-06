@@ -4,13 +4,15 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.schemas import HoldResponse, HoldCreate
 from services import hold_services as hs
+from core.dependencies import get_current_user
+from db.models import User
 
 router = APIRouter(prefix="/walls/{wall_id}/holds", tags=["Holds"])
 
 @router.post("/", response_model = HoldResponse)
-def create_hold_endpoint(wall_id: int, hold: HoldCreate, db: Session = Depends(get_db)):
+def create_hold_endpoint(wall_id: int, hold: HoldCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        hold_db = hs.create_hold(wall_id, hold, db)
+        hold_db = hs.create_hold(wall_id, hold, current_user, db)
         db.commit()
         db.refresh(hold_db)
         return hold_db
@@ -19,15 +21,15 @@ def create_hold_endpoint(wall_id: int, hold: HoldCreate, db: Session = Depends(g
         raise HTTPException(status_code = 400, detail=f"Error encountered during hold creation: {e}")
     
 @router.get("/{hold_id}", response_model = HoldResponse)
-def get_hold_endpoint(wall_id: int, hold_id: int, db: Session = Depends(get_db)):
+def get_hold_endpoint(wall_id: int, hold_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        return hs.get_hold(wall_id, hold_id, db)
+        return hs.get_hold(wall_id, hold_id, current_user, db)
     except ValueError as e:
         raise HTTPException(status_code = 404, detail = f"Error retrieving hold details: {e}")
 
 @router.get("/", response_model = List[HoldResponse])
-def get_holds_endpoint(wall_id: int, db: Session = Depends(get_db)):
+def get_holds_endpoint(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        return hs.get_all_holds(wall_id, db)
+        return hs.get_all_holds(wall_id, current_user, db)
     except ValueError as e:
         raise HTTPException(status_code = 404, detail = f"Error retrieving hold details: {e}")
