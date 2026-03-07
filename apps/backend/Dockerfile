@@ -12,10 +12,10 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# Force headless cv2, uninstall GUI version if pulled in transitively
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip uninstall -y opencv-python || true && \
-    pip install --no-cache-dir opencv-python-headless==4.10.0.84
+# Install everything except opencv, then force headless at the end
+RUN pip install --no-cache-dir -r requirements.txt --ignore-installed opencv-python || true
+RUN pip uninstall -y opencv-python opencv-python-headless || true
+RUN pip install --no-cache-dir opencv-python-headless==4.10.0.84
 
 # Debug: verify cv2 is installed
 RUN python -c "import cv2; print('cv2 OK:', cv2.__version__)"
