@@ -538,8 +538,8 @@ export default function WallDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const currentUsername = getUsername()
-  const [imageUrl, setImageUrl] = useState(null)
-  const [imageDimensions, setImageDimensions] = useState(null)
+  // const [imageUrl, setImageUrl] = useState(null)
+  // const [imageDimensions, setImageDimensions] = useState(null)
   const [search, setSearch] = useState('')
   const [gradeFilter, setGradeFilter] = useState('All')
 
@@ -558,16 +558,36 @@ export default function WallDetailPage() {
     queryFn: async () => (await api.get(`/walls/${id}/routes`)).data
   })
 
-  useEffect(() => {
-    if (!wall?.image_path) return
-    api.get(`/walls/${id}/image`, { responseType: 'blob' }).then(res => {
-      const url = URL.createObjectURL(res.data)
-      setImageUrl(url)
+  // useEffect(() => {
+  //   if (!wall?.image_path) return
+  //   api.get(`/walls/${id}/image`, { responseType: 'blob' }).then(res => {
+  //     const url = URL.createObjectURL(res.data)
+  //     setImageUrl(url)
+  //     const img = new window.Image()
+  //     img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+  //     img.src = url
+  //   })
+  // }, [wall?.image_path, id])
+  const { data: imageUrl } = useQuery({
+    queryKey: ['image', id],
+    queryFn: async () => {
+      const res = await api.get(`/walls/${id}/image`, { responseType: 'blob' })
+      return URL.createObjectURL(res.data)
+    },
+    enabled: !!wall?.image_path,
+    staleTime: Infinity,  // never refetch, image won't change
+  })
+  
+  const { data: imageDimensions } = useQuery({
+    queryKey: ['imageDimensions', id],
+    queryFn: () => new Promise((resolve) => {
       const img = new window.Image()
-      img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-      img.src = url
-    })
-  }, [wall?.image_path, id])
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      img.src = imageUrl
+    }),
+    enabled: !!imageUrl,
+    staleTime: Infinity,
+  })
 
   const filteredRoutes = (routes ?? []).filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase())
@@ -705,6 +725,11 @@ export default function WallDetailPage() {
                     imageWidth={imageDimensions.width}
                     imageHeight={imageDimensions.height}
                   />
+                ) : wall?.image_path ? (
+                  <div className="loading-state">
+                    <div className="loading-spinner" />
+                    <div className="loading-label">Loading image...</div>
+                  </div>
                 ) : (
                   <div className="no-image-state">
                     <div style={{ fontSize: 28, opacity: 0.3 }}>◻</div>
