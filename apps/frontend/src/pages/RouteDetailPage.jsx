@@ -551,8 +551,8 @@ export default function RouteDetailPage() {
   const { id: wallId, routeId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [imageUrl, setImageUrl] = useState(null)
-  const [imageDimensions, setImageDimensions] = useState(null)
+  // const [imageUrl, setImageUrl] = useState(null)
+  // const [imageDimensions, setImageDimensions] = useState(null)
   const [showLogModal, setShowLogModal] = useState(false)
 
   const { data: wall } = useQuery({
@@ -581,16 +581,36 @@ export default function RouteDetailPage() {
   })
 
   // Load image
-  useEffect(() => {
-    if (!wall?.image_path) return
-    api.get(`/walls/${wallId}/image`, { responseType: 'blob' }).then(res => {
-      const url = URL.createObjectURL(res.data)
-      setImageUrl(url)
+  // useEffect(() => {
+  //   if (!wall?.image_path) return
+  //   api.get(`/walls/${wallId}/image`, { responseType: 'blob' }).then(res => {
+  //     const url = URL.createObjectURL(res.data)
+  //     setImageUrl(url)
+  //     const img = new window.Image()
+  //     img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+  //     img.src = url
+  //   })
+  // }, [wall?.image_path, wallId])
+  const { data: imageUrl } = useQuery({
+    queryKey: ['image', wallId],
+    queryFn: async () => {
+      const res = await api.get(`/walls/${wallId}/image`, { responseType: 'blob' })
+      return URL.createObjectURL(res.data)
+    },
+    enabled: !!wall?.image_path,
+    staleTime: Infinity,
+  })
+  
+  const { data: imageDimensions } = useQuery({
+    queryKey: ['imageDimensions', wallId],
+    queryFn: () => new Promise((resolve) => {
       const img = new window.Image()
-      img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-      img.src = url
-    })
-  }, [wall?.image_path, wallId])
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      img.src = imageUrl
+    }),
+    enabled: !!imageUrl,
+    staleTime: Infinity,
+  })
 
   // Build hold_id → role map for canvas
   const routeHoldMap = {}
@@ -687,6 +707,11 @@ export default function RouteDetailPage() {
                     imageWidth={imageDimensions.width}
                     imageHeight={imageDimensions.height}
                   />
+                ) : wall?.image_path ? (
+                  <div className="loading-state">
+                    <div className="loading-spinner" />
+                    <div className="loading-label">Loading image...</div>
+                  </div>
                 ) : (
                   <div style={{ padding: 80, textAlign: 'center', color: 'rgba(245,240,235,0.2)', fontSize: 13 }}>
                     No image available
