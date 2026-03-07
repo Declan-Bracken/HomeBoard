@@ -27,7 +27,7 @@ def get_my_walls(current_user: User = Depends(get_current_user), db: Session = D
     except ValueError as e:
         return HTTPException(status_code=404, detail=str(e))
     
-@router.post("/", response_model=WallResponse)
+@router.post("", response_model=WallResponse)
 def create_wall_endpoint(wall: WallCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         wall_db = ws.create_wall(wall, current_user, db)

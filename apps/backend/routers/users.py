@@ -9,7 +9,7 @@ from core.dependencies import get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/", response_model=UserResponse)
+@router.post("", response_model=UserResponse)
 def create_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     try:
         user_db = us.create_user(user, db)
@@ -27,7 +27,7 @@ def get_user_endpoint(user_id: int, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("", response_model=List[UserResponse])
 def get_users_endpoint(db: Session = Depends(get_db)):
     try:
         return us.get_all_users(db)
