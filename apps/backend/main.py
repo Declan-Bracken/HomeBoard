@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title = "Home Board App")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite's dev server
+    allow_origins=["http://localhost:5173", "https://home-board-one.vercel.app"],  # Vite's dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
