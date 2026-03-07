@@ -445,7 +445,7 @@ const styles = `
 const GRADES = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
 
 // ─── Log Ascent Modal ─────────────────────────────────────────────────────────
-function LogAscentModal({ routeId, routeGrade, onClose, onLogged }) {
+function LogAscentModal({ wallId, routeId, routeGrade, onClose, onLogged }) {
   const [suggestedGrade, setSuggestedGrade] = useState(routeGrade ?? 'Unknown')
   const [quality, setQuality] = useState(0)
   const [nAttempts, setNAttempts] = useState('')
@@ -465,6 +465,7 @@ function LogAscentModal({ routeId, routeGrade, onClose, onLogged }) {
       })
       onLogged()
     } catch (err) {
+      console.log('Ascent error:', err.response?.status, err.response?.data)
       const detail = err.response?.data?.detail
       setError(Array.isArray(detail) ? detail.map(d => d.msg).join(', ') : detail || 'Failed to log ascent')
     } finally {
@@ -643,6 +644,7 @@ export default function RouteDetailPage() {
       <div className="rd-root">
         {showLogModal && (
           <LogAscentModal
+            wallId={wallId}
             routeId={routeId}
             routeGrade={route?.grade}
             onClose={() => setShowLogModal(false)}
