@@ -438,17 +438,17 @@ export default function RouteCreatePage() {
 
   const { data: wall, isLoading: wallLoading } = useQuery({
     queryKey: ['wall', id],
-    queryFn: async () => (await api.get(`/walls/${id}/`)).data
+    queryFn: async () => (await api.get(`/walls/${id}`)).data
   })
 
   const { data: holds, isLoading: holdsLoading } = useQuery({
     queryKey: ['holds', id],
-    queryFn: async () => (await api.get(`/walls/${id}/holds/`)).data
+    queryFn: async () => (await api.get(`/walls/${id}/holds`)).data
   })
 
   useEffect(() => {
     if (!wall?.image_path) return
-    api.get(`/walls/${id}/image/`, { responseType: 'blob' }).then(res => {
+    api.get(`/walls/${id}/image`, { responseType: 'blob' }).then(res => {
       const url = URL.createObjectURL(res.data)
       setImageUrl(url)
       const img = new window.Image()
@@ -492,7 +492,7 @@ export default function RouteCreatePage() {
         role,
       }))
 
-      await api.post(`/walls/${id}/routes/with-holds/`, {
+      await api.post(`/walls/${id}/routes/with-holds`, {
         route: { name: name.trim(), grade, created_by: '' },
         holds_data: holdsData,
       })

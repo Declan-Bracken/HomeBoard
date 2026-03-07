@@ -203,7 +203,7 @@ function SettingsPanel({ wallId, currentPrivacy, queryClient }) {
     setPrivacy(newPrivacy)
     setPrivacySaving(true)
     try {
-      await api.patch(`/walls/${wallId}/`, { privacy: newPrivacy })
+      await api.patch(`/walls/${wallId}`, { privacy: newPrivacy })
       queryClient.invalidateQueries({ queryKey: ['wall', wallId] })
       queryClient.invalidateQueries({ queryKey: ['walls'] })
     } catch {
@@ -545,22 +545,22 @@ export default function WallDetailPage() {
 
   const { data: wall, isLoading: wallLoading } = useQuery({
     queryKey: ['wall', id],
-    queryFn: async () => (await api.get(`/walls/${id}/`)).data
+    queryFn: async () => (await api.get(`/walls/${id}`)).data
   })
 
   const { data: holds, isLoading: holdsLoading } = useQuery({
     queryKey: ['holds', id],
-    queryFn: async () => (await api.get(`/walls/${id}/holds/`)).data
+    queryFn: async () => (await api.get(`/walls/${id}/holds`)).data
   })
 
   const { data: routes, isLoading: routesLoading } = useQuery({
     queryKey: ['routes', id],
-    queryFn: async () => (await api.get(`/walls/${id}/routes/`)).data
+    queryFn: async () => (await api.get(`/walls/${id}/routes`)).data
   })
 
   useEffect(() => {
     if (!wall?.image_path) return
-    api.get(`/walls/${id}/image/`, { responseType: 'blob' }).then(res => {
+    api.get(`/walls/${id}/image`, { responseType: 'blob' }).then(res => {
       const url = URL.createObjectURL(res.data)
       setImageUrl(url)
       const img = new window.Image()

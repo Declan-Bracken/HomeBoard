@@ -285,7 +285,7 @@ function NewWallModal({ onClose, onCreated }) {
     if (!name.trim()) { setError('Wall name is required'); return }
     setLoading(true); setError(null)
     try {
-      const res = await api.post('/walls/', { name: name.trim(), privacy })
+      const res = await api.post('/walls', { name: name.trim(), privacy })
       onCreated(res.data)
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -506,7 +506,7 @@ function HomePage() {
 
   const { data: walls, isLoading, isError } = useQuery({
     queryKey: ['walls'],
-    queryFn: async () => (await api.get('/walls/me/')).data
+    queryFn: async () => (await api.get('/walls/me')).data
   })
 
   const handleLogout = () => {

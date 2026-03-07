@@ -159,7 +159,7 @@ function WallPage() {
 
   const { data: wall } = useQuery({
     queryKey: ['wall', id],
-    queryFn: async () => (await api.get(`/walls/${id}/`)).data
+    queryFn: async () => (await api.get(`/walls/${id}`)).data
   })
 
   const handleUpload = async (e) => {
@@ -169,7 +169,7 @@ function WallPage() {
     try {
       const formData = new FormData()
       formData.append('image', file)
-      const res = await api.post(`/walls/${id}/preview/`, formData, {
+      const res = await api.post(`/walls/${id}/preview`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       setPreview(res.data)
@@ -195,7 +195,7 @@ function WallPage() {
       formData.append('image', blob, 'wall.jpg')
       formData.append('holds', JSON.stringify(finalHolds))
   
-      await api.post(`/walls/${id}/confirm-holds/`, formData, {
+      await api.post(`/walls/${id}/confirm-holds`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       navigate(`/walls/${id}/detail/`)
