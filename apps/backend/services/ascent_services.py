@@ -2,8 +2,8 @@ from db.schemas import AscentCreate
 from db.models import Ascent, Route, User
 from sqlalchemy.orm import Session
 from sqlalchemy import update
-from control_helpers import *
-from wall_services import get_wall
+from services.control_helpers import *
+from services.wall_services import get_wall
 
 def create_ascent(wall_id: int, route_id: int, user: User, ascent: AscentCreate, db: Session):
     wall = get_wall(wall_id, db)

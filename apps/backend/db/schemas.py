@@ -112,7 +112,6 @@ class HoldResponse(HoldBase):
 
 class ConfirmHoldsPayload(BaseModel):
     holds: List[HoldCreate]
-    image_path: str
 
 class RouteHoldCreate(BaseModel):
 	# Specify fields and types (exclude anything that must be used for filtering)

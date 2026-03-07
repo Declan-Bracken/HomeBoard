@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from db.models import Wall, WallMember, User, RoleEnum, PrivacyEnum
 from db.schemas import WallCreate, WallUpdate
 import os
-from control_helpers import *
+from services.control_helpers import *
 
 
 # Wall CRUD
@@ -66,12 +66,11 @@ def get_current_user_walls(current_user: User, db: Session) -> list:
     return results
 
 def get_wall_image(wall_id: int, current_user: User, db: Session) -> str:
+    """Returns the B2 object key for the wall image."""
     wall = get_wall(wall_id, db)
     assert_access(wall, current_user, db)
     if not wall.image_path:
         raise ValueError("No image uploaded for this wall")
-    if not os.path.exists(wall.image_path):
-        raise ValueError("Image file not found on disk")
     return wall.image_path
 
 # ─── Member management ────────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ from db.schemas import AscentCreate, AscentResponse
 from services import ascent_services as a_s
 from core.dependencies import get_current_user
 
-router = APIRouter(prefix = "/walls/{wall_id}/routes/{route_id}/ascents/", tags=["Ascents"])
+router = APIRouter(prefix = "/walls/{wall_id}/routes/{route_id}/ascents", tags=["Ascents"])
 
 @router.post("/", response_model = AscentResponse)
 def create_ascent_endpoint(wall_id: int, route_id: int, ascent: AscentCreate,

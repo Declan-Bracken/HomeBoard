@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 
 // ─── Image downsampler ────────────────────────────────────────────────────────
@@ -184,6 +184,121 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
   )
 }
 
+// ─── Settings panel (owner only) ─────────────────────────────────────────────
+function SettingsPanel({ wallId, currentPrivacy, queryClient }) {
+  const [privacy, setPrivacy] = useState(currentPrivacy)
+  const [inviteUsername, setInviteUsername] = useState('')
+  const [inviteError, setInviteError] = useState(null)
+  const [inviteSuccess, setInviteSuccess] = useState(null)
+  const [privacySaving, setPrivacySaving] = useState(false)
+  const [inviteLoading, setInviteLoading] = useState(false)
+
+  const { data: members, isLoading: membersLoading } = useQuery({
+    queryKey: ['members', wallId],
+    queryFn: async () => (await api.get(`/walls/${wallId}/members`)).data,
+  })
+
+  const handlePrivacyChange = async (newPrivacy) => {
+    if (newPrivacy === privacy) return
+    setPrivacy(newPrivacy)
+    setPrivacySaving(true)
+    try {
+      await api.patch(`/walls/${wallId}/`, { privacy: newPrivacy })
+      queryClient.invalidateQueries({ queryKey: ['wall', wallId] })
+      queryClient.invalidateQueries({ queryKey: ['walls'] })
+    } catch {
+      setPrivacy(currentPrivacy)
+    } finally {
+      setPrivacySaving(false)
+    }
+  }
+
+  const handleInvite = async () => {
+    if (!inviteUsername.trim()) return
+    setInviteLoading(true); setInviteError(null); setInviteSuccess(null)
+    try {
+      await api.post(`/walls/${wallId}/members`, { username: inviteUsername.trim() })
+      setInviteSuccess(`${inviteUsername.trim()} added`)
+      setInviteUsername('')
+      queryClient.invalidateQueries({ queryKey: ['members', wallId] })
+    } catch (err) {
+      setInviteError(err.response?.data?.detail || 'Failed to invite user')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleRemove = async (userId, username) => {
+    if (!window.confirm(`Remove ${username} from this wall?`)) return
+    try {
+      await api.delete(`/walls/${wallId}/members/${userId}`)
+      queryClient.invalidateQueries({ queryKey: ['members', wallId] })
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to remove member')
+    }
+  }
+
+  return (
+    <div className="settings-panel">
+      <div className="settings-section">
+        <div className="settings-section-title">Privacy</div>
+        <div className="privacy-toggle">
+          <div
+            className={`privacy-opt ${privacy === 'Private' ? 'selected' : ''}`}
+            onClick={() => handlePrivacyChange('Private')}
+          >
+            <span className="privacy-opt-label">🔒 Private</span>
+            <span className="privacy-opt-desc">Invite only</span>
+          </div>
+          <div
+            className={`privacy-opt ${privacy === 'Public' ? 'selected' : ''}`}
+            onClick={() => handlePrivacyChange('Public')}
+          >
+            <span className="privacy-opt-label">🌐 Public</span>
+            <span className="privacy-opt-desc">Anyone can view & add routes</span>
+          </div>
+        </div>
+        {privacySaving && <div className="settings-saving">Saving...</div>}
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section-title">Members</div>
+        <div className="invite-row">
+          <input
+            className="invite-input"
+            placeholder="Username to invite..."
+            value={inviteUsername}
+            onChange={e => setInviteUsername(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleInvite()}
+          />
+          <button className="invite-btn" onClick={handleInvite} disabled={inviteLoading}>
+            {inviteLoading ? '...' : '+ Add'}
+          </button>
+        </div>
+        {inviteError && <div className="invite-error">{inviteError}</div>}
+        {inviteSuccess && <div className="invite-success">{inviteSuccess}</div>}
+        <div className="members-list">
+          {membersLoading ? (
+            <div className="members-loading">Loading...</div>
+          ) : members?.map(m => (
+            <div key={m.user_id} className="member-row">
+              <div className="member-info">
+                <span className="member-name">{m.username}</span>
+                <span className={`member-role ${m.role === 'owner' ? 'role-owner' : 'role-member'}`}>
+                  {m.role}
+                </span>
+              </div>
+              {m.role !== 'owner' && (
+                <button className="remove-btn" onClick={() => handleRemove(m.user_id, m.username)}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Grade badge color ────────────────────────────────────────────────────────
 function gradeColor(grade) {
   const map = {
@@ -196,6 +311,13 @@ function gradeColor(grade) {
 }
 
 const GRADES = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
+
+function getUsername() {
+  try {
+    const token = localStorage.getItem('token')
+    return JSON.parse(atob(token.split('.')[1])).sub
+  } catch { return null }
+}
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = `
@@ -231,8 +353,13 @@ const styles = `
   /* Header */
   .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
   .detail-title { font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 0.9; letter-spacing: 0.03em; }
+  .detail-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .detail-subtitle { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-top: 8px; }
   .detail-actions { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+
+  .privacy-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; }
+  .privacy-badge-public { background: rgba(107,203,119,0.1); color: rgba(107,203,119,0.7); border: 1px solid rgba(107,203,119,0.2); }
+  .privacy-badge-private { background: rgba(255,255,255,0.04); color: rgba(245,240,235,0.3); border: 1px solid rgba(255,255,255,0.08); }
 
   .action-btn {
     background: #ff6428; border: none; border-radius: 2px;
@@ -257,7 +384,6 @@ const styles = `
 
   /* Filter bar */
   .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-
   .filter-input {
     background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 2px; padding: 10px 12px; font-size: 13px;
@@ -266,7 +392,6 @@ const styles = `
   }
   .filter-input:focus { border-color: rgba(255,100,40,0.4); }
   .filter-input::placeholder { color: rgba(245,240,235,0.2); }
-
   .filter-select {
     background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 2px; padding: 10px 12px; font-size: 13px;
@@ -297,16 +422,13 @@ const styles = `
     min-width: 44px; text-align: center; padding: 6px 8px; border-radius: 2px;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
   }
-
   .route-card-body { flex: 1; min-width: 0; }
   .route-card-name { font-size: 14px; font-weight: 500; color: #f5f0eb; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .route-card-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .route-meta-item { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); display: flex; align-items: center; gap: 4px; }
   .route-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,100,40,0.4); }
-
   .ascent-count { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.04em; color: rgba(245,240,235,0.25); flex-shrink: 0; text-align: center; }
   .ascent-count span { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 300; display: block; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
-
   .route-arrow { color: rgba(255,100,40,0.2); font-size: 14px; transition: color 0.2s; flex-shrink: 0; }
   .route-card:hover .route-arrow { color: #ff6428; }
 
@@ -319,6 +441,45 @@ const styles = `
   .wall-preview-panel { display: flex; flex-direction: column; gap: 10px; }
   .preview-header { display: flex; align-items: center; justify-content: space-between; }
   .canvas-hint { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2); }
+
+  /* Settings panel */
+  .settings-panel {
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 2px;
+    background: #161412; overflow: hidden;
+  }
+  .settings-section { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .settings-section:last-child { border-bottom: none; }
+  .settings-section-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); margin-bottom: 12px; }
+  .settings-saving { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.3); margin-top: 8px; }
+
+  .privacy-toggle { display: flex; gap: 6px; }
+  .privacy-opt { flex: 1; padding: 8px 10px; border-radius: 2px; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); transition: all 0.15s; }
+  .privacy-opt-label { font-size: 12px; font-weight: 500; color: rgba(245,240,235,0.45); display: block; margin-bottom: 1px; }
+  .privacy-opt-desc { font-size: 9px; font-weight: 300; color: rgba(245,240,235,0.22); display: block; }
+  .privacy-opt.selected { border-color: rgba(255,100,40,0.4); background: rgba(255,100,40,0.06); }
+  .privacy-opt.selected .privacy-opt-label { color: #ff6428; }
+  .privacy-opt.selected .privacy-opt-desc { color: rgba(255,100,40,0.45); }
+
+  .invite-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .invite-input { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 8px 10px; font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 36px; }
+  .invite-input:focus { border-color: rgba(255,100,40,0.4); }
+  .invite-input::placeholder { color: rgba(245,240,235,0.2); }
+  .invite-btn { background: rgba(255,100,40,0.1); border: 1px solid rgba(255,100,40,0.25); border-radius: 2px; padding: 8px 12px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; color: #ff6428; cursor: pointer; transition: all 0.2s; white-space: nowrap; min-height: 36px; }
+  .invite-btn:hover { background: rgba(255,100,40,0.18); }
+  .invite-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .invite-error { font-size: 11px; color: #ff6060; margin-bottom: 8px; }
+  .invite-success { font-size: 11px; color: #6bcb77; margin-bottom: 8px; }
+
+  .members-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .member-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 2px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); }
+  .member-info { display: flex; align-items: center; gap: 8px; }
+  .member-name { font-size: 12px; font-weight: 400; color: #f5f0eb; }
+  .member-role { font-size: 9px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 1px 5px; border-radius: 2px; }
+  .role-owner { background: rgba(255,100,40,0.1); color: rgba(255,100,40,0.6); border: 1px solid rgba(255,100,40,0.2); }
+  .role-member { background: rgba(255,255,255,0.04); color: rgba(245,240,235,0.3); border: 1px solid rgba(255,255,255,0.06); }
+  .remove-btn { background: none; border: none; color: rgba(245,240,235,0.2); cursor: pointer; font-size: 12px; padding: 4px 6px; border-radius: 2px; transition: color 0.15s, background 0.15s; min-height: 28px; min-width: 28px; }
+  .remove-btn:hover { color: #ff6060; background: rgba(255,60,60,0.08); }
+  .members-loading { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.3); padding: 8px 0; }
 
   /* Loading */
   .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 80px 40px; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; background: #161412; }
@@ -375,6 +536,8 @@ function formatDate(iso) {
 export default function WallDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const currentUsername = getUsername()
   const [imageUrl, setImageUrl] = useState(null)
   const [imageDimensions, setImageDimensions] = useState(null)
   const [search, setSearch] = useState('')
@@ -412,6 +575,7 @@ export default function WallDetailPage() {
     return matchesSearch && matchesGrade
   })
 
+  const isOwner = wall?.created_by === currentUsername
   const isLoading = wallLoading || holdsLoading
 
   return (
@@ -429,7 +593,14 @@ export default function WallDetailPage() {
         <main className="detail-main">
           <div className="detail-header">
             <div>
-              <h1 className="detail-title">{wall?.name ?? `Wall #${id}`}</h1>
+              <div className="detail-title-row">
+                <h1 className="detail-title">{wall?.name ?? `Wall #${id}`}</h1>
+                {wall && (
+                  <span className={`privacy-badge ${wall.privacy === 'Public' ? 'privacy-badge-public' : 'privacy-badge-private'}`}>
+                    {wall.privacy === 'Public' ? '🌐 Public' : '🔒 Private'}
+                  </span>
+                )}
+              </div>
               <p className="detail-subtitle">
                 {routes
                   ? `${routes.length} route${routes.length !== 1 ? 's' : ''} · ${holds?.length ?? 0} holds mapped`
@@ -437,7 +608,9 @@ export default function WallDetailPage() {
               </p>
             </div>
             <div className="detail-actions">
-              <button className="action-btn secondary" onClick={() => navigate(`/walls/${id}`)}>↑ Re-upload</button>
+              {isOwner && (
+                <button className="action-btn secondary" onClick={() => navigate(`/walls/${id}`)}>↑ Re-upload</button>
+              )}
               <button className="action-btn" onClick={() => navigate(`/walls/${id}/route/new`)}>+ New Route</button>
             </div>
           </div>
@@ -519,7 +692,7 @@ export default function WallDetailPage() {
                 )}
               </div>
 
-              {/* Wall preview */}
+              {/* Wall preview + settings */}
               <div className="wall-preview-panel">
                 <div className="preview-header">
                   <span className="panel-title">Wall</span>
@@ -536,8 +709,18 @@ export default function WallDetailPage() {
                   <div className="no-image-state">
                     <div style={{ fontSize: 28, opacity: 0.3 }}>◻</div>
                     <p style={{ fontSize: 13, fontWeight: 300 }}>No image uploaded</p>
-                    <button className="action-btn" style={{ marginTop: 4 }} onClick={() => navigate(`/walls/${id}`)}>Upload Image</button>
+                    {isOwner && (
+                      <button className="action-btn" style={{ marginTop: 4 }} onClick={() => navigate(`/walls/${id}`)}>Upload Image</button>
+                    )}
                   </div>
+                )}
+
+                {isOwner && wall && (
+                  <SettingsPanel
+                    wallId={id}
+                    currentPrivacy={wall.privacy}
+                    queryClient={queryClient}
+                  />
                 )}
               </div>
 

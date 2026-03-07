@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from typing import List
 from db.models import User, Ascent, Route
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ from db.schemas import (
     WallMemberResponse, InviteMemberRequest,
     WallSearchResult, UserSearchResult
 )
+from storage.image_storage import download_image
 from services import wall_services as ws
 from core.dependencies import get_current_user
 """
@@ -94,15 +95,19 @@ def update_wall_privacy_endpoint(
 #         raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/{wall_id}/image")
-def get_wall_image(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_wall_image(
+    wall_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     try:
-        image_path = ws.get_wall_image(wall_id, current_user, db)
-        return FileResponse(path=image_path, media_type="image/jpeg")
+        key = ws.get_wall_image(wall_id, current_user, db)
+        image_bytes = download_image(key)
+        return Response(content=image_bytes, media_type="image/jpeg")
     except ValueError as e:
-        raise HTTPException(status_code = 404, detail = str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
 # Member Management:
-    
 @router.get("/{wall_id}/members", response_model=List[WallMemberResponse])
 def get_members_endpoint(
     wall_id: int,

@@ -182,16 +182,28 @@ function WallPage() {
 
   const handleConfirm = async (finalHolds) => {
     try {
-      await api.post(`/walls/${id}/confirm-holds/`, {
-        holds: finalHolds,
-        image_path: preview.image_path
+      const formData = new FormData()
+      
+      // Convert base64 back to blob
+      const byteString = atob(preview.image_b64)
+      const byteArray = new Uint8Array(byteString.length)
+      for (let i = 0; i < byteString.length; i++) {
+        byteArray[i] = byteString.charCodeAt(i)
+      }
+      const blob = new Blob([byteArray], { type: 'image/jpeg' })
+      
+      formData.append('image', blob, 'wall.jpg')
+      formData.append('holds', JSON.stringify(finalHolds))
+  
+      await api.post(`/walls/${id}/confirm-holds/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       })
       navigate(`/walls/${id}/detail/`)
     } catch (err) {
       const detail = err.response?.data?.detail
       setError(Array.isArray(detail) ? detail.map(d => d.msg).join(', ') : detail || 'Failed to confirm holds')
     }
-  }
+  } 
 
   return (
     <>

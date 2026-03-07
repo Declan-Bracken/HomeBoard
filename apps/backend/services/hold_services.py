@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from db.models import Hold
 from db.schemas import HoldCreate
-from control_helpers import *
-from wall_services import get_wall
+from services.control_helpers import *
+from services.wall_services import get_wall
 
 def create_hold(wall_id: int, hold: HoldCreate, user: User, db: Session):
     wall = get_wall(wall_id, db)
