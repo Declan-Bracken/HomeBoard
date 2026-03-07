@@ -457,7 +457,7 @@ function LogAscentModal({ routeId, routeGrade, onClose, onLogged }) {
     setError(null)
     setLoading(true)
     try {
-      await api.post(`/routes/${routeId}/ascents`, {
+      await api.post(`/walls/${wallId}/routes/${routeId}/ascents`, {
         suggested_grade: suggestedGrade,
         quality: quality > 0 ? quality : null,
         n_attempts: nAttempts ? parseInt(nAttempts) : null,
@@ -577,7 +577,7 @@ export default function RouteDetailPage() {
 
   const { data: ascents } = useQuery({
     queryKey: ['ascents', routeId],
-    queryFn: async () => (await api.get(`/routes/${routeId}/ascents`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}/ascents`)).data
   })
 
   // Load image
