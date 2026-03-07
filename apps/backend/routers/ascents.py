@@ -9,7 +9,7 @@ from core.dependencies import get_current_user
 
 router = APIRouter(prefix = "/walls/{wall_id}/routes/{route_id}/ascents", tags=["Ascents"])
 
-@router.post("/", response_model = AscentResponse)
+@router.post("", response_model = AscentResponse)
 def create_ascent_endpoint(wall_id: int, route_id: int, ascent: AscentCreate,
                            current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
@@ -29,7 +29,7 @@ def get_ascent_endpoint(wall_id: int, route_id: int, ascent_id: int,
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.get("/", response_model=List[AscentResponse])
+@router.get("", response_model=List[AscentResponse])
 def get_ascents_endpoint(wall_id: int, route_id: int, 
                          current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:

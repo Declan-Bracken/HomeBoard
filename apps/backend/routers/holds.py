@@ -9,7 +9,7 @@ from db.models import User
 
 router = APIRouter(prefix="/walls/{wall_id}/holds", tags=["Holds"])
 
-@router.post("/", response_model = HoldResponse)
+@router.post("", response_model = HoldResponse)
 def create_hold_endpoint(wall_id: int, hold: HoldCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         hold_db = hs.create_hold(wall_id, hold, current_user, db)
@@ -27,7 +27,7 @@ def get_hold_endpoint(wall_id: int, hold_id: int, current_user: User = Depends(g
     except ValueError as e:
         raise HTTPException(status_code = 404, detail = f"Error retrieving hold details: {e}")
 
-@router.get("/", response_model = List[HoldResponse])
+@router.get("", response_model = List[HoldResponse])
 def get_holds_endpoint(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         return hs.get_all_holds(wall_id, current_user, db)

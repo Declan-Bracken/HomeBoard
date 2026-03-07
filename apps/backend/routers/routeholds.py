@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 router = APIRouter(prefix = "/routes/{route_id}/routeholds", tags = ["RouteHolds"])
 
 # creation of a route hold
-@router.post("/", response_model = RouteHoldResponse)
+@router.post("", response_model = RouteHoldResponse)
 def create_routehold_endpoint(route_id: int, routehold: RouteHoldCreate, db: Session = Depends(get_db)):
 	try:
 		routehold_db = rhs.create_routehold(route_id, routehold, db)
@@ -21,7 +21,7 @@ def create_routehold_endpoint(route_id: int, routehold: RouteHoldCreate, db: Ses
 		raise HTTPException(status_code = 400, detail=str(e))
 
 # getting all route holds
-@router.get("/", response_model = List[RouteHoldResponse])
+@router.get("", response_model = List[RouteHoldResponse])
 def get_routeholds_endpoint(route_id: int, db: Session = Depends(get_db)):
 	try:
 		return rhs.get_all_routeholds(route_id, db)

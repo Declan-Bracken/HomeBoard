@@ -10,7 +10,7 @@ from core.dependencies import get_current_user
 router = APIRouter(prefix="/walls/{wall_id}/routes", tags=["Routes"])
 
 # Routes:
-@router.post("/", response_model=RouteResponse)
+@router.post("", response_model=RouteResponse)
 def create_route_endpoint(wall_id: int, route: RouteCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         route_db = rs.create_route_on_wall(wall_id, route, current_user, db)
@@ -28,7 +28,7 @@ def get_route_endpoint(wall_id: int, route_id:int, current_user: User = Depends(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.get("/", response_model=List[RouteResponse])
+@router.get("", response_model=List[RouteResponse])
 def get_routes_endpoint(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return rs.get_all_routes_from_wall(wall_id, current_user, db)
 
