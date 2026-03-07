@@ -17,6 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
     pip uninstall -y opencv-python || true && \
     pip install --no-cache-dir opencv-python-headless==4.10.0.84
 
+# Debug: verify cv2 is installed
+RUN python -c "import cv2; print('cv2 OK:', cv2.__version__)"
+
 COPY . .
 
 RUN rm -rf .venv
