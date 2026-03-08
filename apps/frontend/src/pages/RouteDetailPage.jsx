@@ -692,16 +692,18 @@ export default function RouteDetailPage() {
 
                 {/* Canvas */}
                 {canvasReady ? (
-                  <div onClick={() => setShowFullscreen(true)} style={{ cursor: 'pointer' }}>
+                  <div style={{ position: 'relative', cursor: 'pointer' }}>
                     <RouteCanvas
                       imageUrl={imageUrl} allHolds={allHolds} routeHoldMap={routeHoldMap}
                       imageWidth={imageDimensions.width} imageHeight={imageDimensions.height}
                     />
-                  </div>
-                ) : wall?.image_path ? (
-                  <div className="loading-state">
-                    <div className="loading-spinner" />
-                    <div className="loading-label">Loading image...</div>
+                    <div
+                      onClick={() => setShowFullscreen(true)}
+                      style={{
+                        position: 'absolute', inset: 0, zIndex: 10,
+                        background: 'transparent',
+                      }}
+                    />
                   </div>
                 ) : (
                   <div style={{ padding: 60, textAlign: 'center', color: 'rgba(245,240,235,0.2)', fontSize: 13 }}>
