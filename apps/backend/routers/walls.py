@@ -46,6 +46,14 @@ def create_wall_endpoint(wall: WallCreate, current_user: User = Depends(get_curr
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/public", response_model=List[WallResponse])
+def get_public_walls_endpoint(
+    db: Session = Depends(get_db)):
+    try:
+        return ws.get_public_walls(db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    
 @router.get("/{wall_id}", response_model=WallResponse)
 def get_wall_endpoint(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
@@ -86,14 +94,6 @@ def update_wall_privacy_endpoint(
     except ValueError as e:
         db.rollback()
         raise HTTPException(status_code=403, detail=str(e))
-    
-@router.get("/public", response_model=List[WallResponse])
-def get_public_walls_endpoint(
-    db: Session = Depends(get_db)):
-    try:
-        return ws.get_public_walls(db)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/{wall_id}/image")
 def get_wall_image(
