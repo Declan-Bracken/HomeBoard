@@ -144,7 +144,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
   useEffect(() => {
     const src = `data:image/jpeg;base64,${preview.image_b64}`
-    downsampleImage(src, 1200).then(img => { S.current.img = img; scheduleRender() })
+    downsampleImage(src, 1800).then(img => { S.current.img = img; scheduleRender() })
   }, [preview.image_b64, scheduleRender])
 
   useEffect(() => {

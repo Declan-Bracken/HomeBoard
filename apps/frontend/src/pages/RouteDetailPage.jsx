@@ -121,7 +121,7 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
   }, [allHolds, routeHoldMap])
 
   useEffect(() => {
-    downsampleImage(imageUrl, 1200).then(img => { S.current.img = img; scheduleRender() })
+    downsampleImage(imageUrl, 1800).then(img => { S.current.img = img; scheduleRender() })
   }, [imageUrl, scheduleRender])
 
   useEffect(() => {
