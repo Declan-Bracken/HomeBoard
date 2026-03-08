@@ -367,7 +367,7 @@ function WallCard({ wall }) {
         <div className="wall-meta-row"><div className="wall-meta-dot" />Created by {wall.created_by}</div>
         <div className="wall-meta-row"><div className="wall-meta-dot" />{formatDate(wall.created_at)}</div>
       </div>
-      <div className="wall-card-arrow">↗</div>
+      <div className="wall-card-arrow">→</div>
     </div>
   )
 }
