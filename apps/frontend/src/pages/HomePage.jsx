@@ -10,6 +10,7 @@ const styles = `
 
   .dash-root {
     min-height: 100vh;
+    min-height: 100dvh;
     background-color: #0f0e0d;
     font-family: 'DM Sans', sans-serif;
     color: #f5f0eb;
@@ -67,8 +68,7 @@ const styles = `
   .search-bar-wrap { position: relative; margin-bottom: 20px; }
   .search-icon {
     position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-    font-size: 14px; color: rgba(245,240,235,0.25); pointer-events: none;
-    line-height: 1;
+    font-size: 14px; color: rgba(245,240,235,0.25); pointer-events: none; line-height: 1;
   }
   .search-input {
     width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
@@ -141,6 +141,27 @@ const styles = `
   .wall-card-arrow { position: absolute; bottom: 18px; right: 18px; font-size: 15px; color: rgba(255,100,40,0.3); transition: color 0.2s; }
   .wall-card:hover .wall-card-arrow { color: #ff6428; }
 
+  /* PUBLIC WALL ROW */
+  .public-wall-row {
+    background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px;
+    padding: 14px 18px; display: flex; align-items: center; gap: 16px;
+    cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    position: relative; overflow: hidden; min-height: 56px;
+  }
+  .public-wall-row::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: #6bcb77; opacity: 0; transition: opacity 0.2s;
+  }
+  .public-wall-row:hover { border-color: rgba(107,203,119,0.2); background: #1a1714; }
+  .public-wall-row:hover::before { opacity: 1; }
+  .public-wall-body { flex: 1; min-width: 0; }
+  .public-wall-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.04em; color: #f5f0eb; line-height: 1; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .public-wall-meta { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); }
+  .public-wall-routes { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: rgba(245,240,235,0.3); text-align: right; flex-shrink: 0; line-height: 1; }
+  .public-wall-routes span { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 300; display: block; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,240,235,0.2); }
+  .public-wall-arrow { color: rgba(107,203,119,0.3); font-size: 13px; flex-shrink: 0; transition: color 0.2s; }
+  .public-wall-row:hover .public-wall-arrow { color: #6bcb77; }
+
   /* SKELETON */
   .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
   .skeleton-card { background: #161412; border: 1px solid rgba(255,255,255,0.04); border-radius: 2px; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
@@ -153,10 +174,8 @@ const styles = `
   /* SEARCH RESULTS */
   .search-results { animation: fadeIn 0.2s ease; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
   .search-section { margin-bottom: 32px; }
 
-  /* Search wall card — slimmer than the main wall card */
   .search-wall-card {
     background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px;
     padding: 14px 18px; display: flex; align-items: center; gap: 16px;
@@ -177,11 +196,7 @@ const styles = `
   .search-wall-arrow { color: rgba(255,100,40,0.25); font-size: 13px; flex-shrink: 0; transition: color 0.2s; }
   .search-wall-card:hover .search-wall-arrow { color: #ff6428; }
 
-  /* User result card */
-  .user-card {
-    background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px;
-    padding: 16px 18px; margin-bottom: 10px;
-  }
+  .user-card { background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; padding: 16px 18px; margin-bottom: 10px; }
   .user-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .user-card-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.05em; color: #f5f0eb; }
   .user-card-meta { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); }
@@ -189,18 +204,13 @@ const styles = `
   .user-stat { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); }
   .user-stat strong { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.04em; color: rgba(245,240,235,0.6); margin-right: 3px; }
   .user-walls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .user-wall-chip {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 4px 10px; font-size: 11px; font-weight: 400;
-    color: rgba(245,240,235,0.5); cursor: pointer; transition: all 0.15s;
-  }
+  .user-wall-chip { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 4px 10px; font-size: 11px; font-weight: 400; color: rgba(245,240,235,0.5); cursor: pointer; transition: all 0.15s; }
   .user-wall-chip:hover { border-color: rgba(255,100,40,0.3); color: #ff6428; background: rgba(255,100,40,0.05); }
   .user-no-walls { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2); margin-top: 8px; }
 
   .search-loading { display: flex; align-items: center; gap: 12px; padding: 40px 0; color: rgba(245,240,235,0.3); font-size: 13px; font-weight: 300; }
   .search-spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.06); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
-
   .search-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 0; gap: 10px; color: rgba(245,240,235,0.2); }
   .search-empty-icon { font-size: 32px; opacity: 0.3; }
   .search-empty p { font-size: 13px; font-weight: 300; }
@@ -216,7 +226,6 @@ const styles = `
   .modal-field input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 11px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 44px; }
   .modal-field input:focus { border-color: rgba(255,100,40,0.5); }
   .modal-field input::placeholder { color: rgba(245,240,235,0.15); }
-
   .privacy-toggle { display: flex; gap: 8px; }
   .privacy-opt { flex: 1; padding: 10px 12px; border-radius: 2px; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); transition: all 0.15s; }
   .privacy-opt-label { font-size: 13px; font-weight: 500; color: rgba(245,240,235,0.5); display: block; margin-bottom: 2px; }
@@ -224,7 +233,6 @@ const styles = `
   .privacy-opt.selected { border-color: rgba(255,100,40,0.4); background: rgba(255,100,40,0.06); }
   .privacy-opt.selected .privacy-opt-label { color: #ff6428; }
   .privacy-opt.selected .privacy-opt-desc { color: rgba(255,100,40,0.45); }
-
   .modal-error { font-size: 12px; color: #ff6060; background: rgba(255,60,60,0.08); border: 1px solid rgba(255,60,60,0.15); border-radius: 2px; padding: 8px 12px; margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
   .modal-cancel { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; min-height: 44px; }
@@ -364,6 +372,19 @@ function WallCard({ wall }) {
   )
 }
 
+// ─── Public wall row ──────────────────────────────────────────────────────────
+function PublicWallRow({ wall }) {
+  const navigate = useNavigate()
+  return (
+    <div className="public-wall-row" onClick={() => navigate(`/walls/${wall.id}/detail`)}>
+      <div className="public-wall-body">
+        <div className="public-wall-name">{wall.name}</div>
+        <div className="public-wall-meta">by {wall.created_by}</div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Search results ───────────────────────────────────────────────────────────
 function SearchResults({ query }) {
   const navigate = useNavigate()
@@ -375,7 +396,6 @@ function SearchResults({ query }) {
 
   useEffect(() => {
     if (query.length < 2) { setWallResults(null); setUserResults(null); return }
-
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       setLoading(true); setError(null)
@@ -392,46 +412,29 @@ function SearchResults({ query }) {
         setLoading(false)
       }
     }, 400)
-
     return () => clearTimeout(debounceRef.current)
   }, [query])
 
   if (query.length < 2) return null
 
-  if (loading) {
-    return (
-      <div className="search-results">
-        <div className="search-loading">
-          <div className="search-spinner" />
-          Searching...
-        </div>
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="search-results">
+      <div className="search-loading"><div className="search-spinner" />Searching...</div>
+    </div>
+  )
 
-  if (error) {
-    return (
-      <div className="search-results">
-        <div className="search-empty">
-          <div className="search-empty-icon">⚠</div>
-          <p>Search failed — is the backend running?</p>
-        </div>
-      </div>
-    )
-  }
+  if (error) return (
+    <div className="search-results">
+      <div className="search-empty"><div className="search-empty-icon">⚠</div><p>Search failed</p></div>
+    </div>
+  )
 
   const noResults = wallResults?.length === 0 && userResults?.length === 0
-
-  if (noResults) {
-    return (
-      <div className="search-results">
-        <div className="search-empty">
-          <div className="search-empty-icon">◻</div>
-          <p>No walls or users found for "{query}"</p>
-        </div>
-      </div>
-    )
-  }
+  if (noResults) return (
+    <div className="search-results">
+      <div className="search-empty"><div className="search-empty-icon">◻</div><p>No results for "{query}"</p></div>
+    </div>
+  )
 
   return (
     <div className="search-results">
@@ -440,26 +443,18 @@ function SearchResults({ query }) {
           <div className="section-label">Walls</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {wallResults.map(wall => (
-              <div
-                key={wall.id}
-                className="search-wall-card"
-                onClick={() => navigate(`/walls/${wall.id}/detail`)}
-              >
+              <div key={wall.id} className="search-wall-card" onClick={() => navigate(`/walls/${wall.id}/detail`)}>
                 <div className="search-wall-body">
                   <div className="search-wall-name">{wall.name}</div>
                   <div className="search-wall-meta">by {wall.created_by} · {formatDate(wall.created_at)}</div>
                 </div>
-                <div className="search-wall-routes">
-                  {wall.route_count}
-                  <span>routes</span>
-                </div>
+                <div className="search-wall-routes">{wall.route_count}<span>routes</span></div>
                 <div className="search-wall-arrow">→</div>
               </div>
             ))}
           </div>
         </div>
       )}
-
       {userResults?.length > 0 && (
         <div className="search-section">
           <div className="section-label">People</div>
@@ -476,13 +471,7 @@ function SearchResults({ query }) {
               {user.public_walls?.length > 0 ? (
                 <div className="user-walls">
                   {user.public_walls.map(w => (
-                    <div
-                      key={w.id}
-                      className="user-wall-chip"
-                      onClick={() => navigate(`/walls/${w.id}/detail`)}
-                    >
-                      {w.name}
-                    </div>
+                    <div key={w.id} className="user-wall-chip" onClick={() => navigate(`/walls/${w.id}/detail`)}>{w.name}</div>
                   ))}
                 </div>
               ) : (
@@ -506,7 +495,12 @@ function HomePage() {
 
   const { data: walls, isLoading, isError } = useQuery({
     queryKey: ['walls'],
-    queryFn: async () => (await api.get('/walls/me')).data
+    queryFn: async () => (await api.get('/walls/me')).data,
+  })
+
+  const { data: publicWalls } = useQuery({
+    queryKey: ['publicWalls'],
+    queryFn: async () => (await api.get('/walls/public')).data,
   })
 
   const handleLogout = () => {
@@ -516,6 +510,7 @@ function HomePage() {
 
   const handleWallCreated = (newWall) => {
     queryClient.invalidateQueries({ queryKey: ['walls'] })
+    queryClient.invalidateQueries({ queryKey: ['publicWalls'] })
     setShowModal(false)
     navigate(`/walls/${newWall.id}`)
   }
@@ -524,6 +519,10 @@ function HomePage() {
   const joinedWalls = walls?.filter(w => w.role === 'member') ?? []
   const showSectionLabels = ownedWalls.length > 0 && joinedWalls.length > 0
   const isSearching = searchQuery.length >= 2
+
+  // Exclude walls the user already has access to from the discover section
+  const myWallIds = new Set(walls?.map(w => w.id) ?? [])
+  const discoverWalls = publicWalls?.filter(w => !myWallIds.has(w.id)) ?? []
 
   return (
     <>
@@ -552,7 +551,6 @@ function HomePage() {
             <button className="new-wall-btn" onClick={() => setShowModal(true)}>+ New Wall</button>
           </div>
 
-          {/* Search bar */}
           <div className="search-bar-wrap">
             <span className="search-icon">⌕</span>
             <input
@@ -568,7 +566,6 @@ function HomePage() {
 
           <div className="dash-divider" />
 
-          {/* Search results — replaces wall grid when active */}
           {isSearching ? (
             <SearchResults query={searchQuery} />
           ) : (
@@ -606,6 +603,19 @@ function HomePage() {
                       </div>
                     </>
                   )}
+                </>
+              )}
+
+              {/* Discover section — public walls the user doesn't already have */}
+              {discoverWalls.length > 0 && (
+                <>
+                  <div className="dash-divider" style={{ marginTop: 4 }} />
+                  <div className="section-label">Discover</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {discoverWalls.map(wall => (
+                      <PublicWallRow key={wall.id} wall={wall} />
+                    ))}
+                  </div>
                 </>
               )}
             </>

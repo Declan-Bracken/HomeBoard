@@ -113,6 +113,9 @@ def remove_member(wall_id: int, user_id: int, current_user: User, db: Session):
 
 # ─── Search / discovery ───────────────────────────────────────────────────────
 
+def get_public_walls(db: Session) -> list[Wall]:
+    return db.query(Wall).filter(Wall.privacy == PrivacyEnum.Public).order_by(Wall.name).all()
+
 def search_walls(query: str, db: Session) -> list[Wall]:
     """Search public walls by name."""
     return (
