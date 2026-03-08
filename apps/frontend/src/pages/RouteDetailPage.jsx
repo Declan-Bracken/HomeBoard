@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
@@ -40,29 +40,11 @@ function downsampleImage(src, maxSize) {
   })
 }
 
-// ─── Hit test ─────────────────────────────────────────────────────────────────
-function hitTest(screenX, screenY, polygon, imgScale, tx) {
-  if (!polygon || polygon.length < 3) return false
-  const pts = polygon.map(p => ({
-    x: p.x * imgScale * tx.z + tx.x,
-    y: p.y * imgScale * tx.z + tx.y,
-  }))
-  let inside = false
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y
-    if ((yi > screenY) !== (yj > screenY) &&
-        screenX < ((xj - xi) * (screenY - yi)) / (yj - yi) + xi)
-      inside = !inside
-  }
-  return inside
-}
-
 // ─── Canvas renderer ──────────────────────────────────────────────────────────
 function renderCanvas(imageCanvas, overlayCanvas, img, allHolds, routeHoldMap, state) {
   if (!imageCanvas || !overlayCanvas) return
   const { tx, imgScale, origWidth, origHeight } = state
 
-  // Image layer — draw then darken
   const ic = imageCanvas.getContext('2d')
   ic.clearRect(0, 0, imageCanvas.width, imageCanvas.height)
   if (img) {
@@ -88,21 +70,18 @@ function renderCanvas(imageCanvas, overlayCanvas, img, allHolds, routeHoldMap, s
     }
 
     if (role) {
-      // Cut through darkening to reveal original image
       ic.save()
       ic.globalCompositeOperation = 'destination-out'
       buildPath(ic)
       ic.fill()
       ic.restore()
 
-      // Re-draw image in hold area
       ic.save()
       buildPath(ic)
       ic.clip()
       if (img) ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
       ic.restore()
 
-      // Colored overlay
       const colors = ROLE_COLORS[role]
       buildPath(oc)
       oc.fillStyle = colors.fill
@@ -114,7 +93,6 @@ function renderCanvas(imageCanvas, overlayCanvas, img, allHolds, routeHoldMap, s
       oc.stroke()
       oc.shadowBlur = 0
     } else {
-      // Unselected — faint outline only
       buildPath(oc)
       oc.strokeStyle = 'rgba(255,255,255,0.12)'
       oc.lineWidth = 1
@@ -124,7 +102,7 @@ function renderCanvas(imageCanvas, overlayCanvas, img, allHolds, routeHoldMap, s
 }
 
 // ─── Route Canvas ─────────────────────────────────────────────────────────────
-function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight }) {
+function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight, fullscreen }) {
   const containerRef = useRef(null)
   const imageCanvasRef = useRef(null)
   const overlayCanvasRef = useRef(null)
@@ -149,16 +127,18 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
   useEffect(() => {
     if (!containerRef.current) return
     const w = containerRef.current.offsetWidth
-    const maxH = Math.min(window.innerHeight * 0.72, 680)
+    const maxH = fullscreen
+      ? window.innerHeight - 60
+      : Math.min(window.innerHeight * 0.55, 520)
     const s = Math.min(w / imageWidth, maxH / imageHeight)
     const displayW = imageWidth * s, displayH = imageHeight * s
     S.current.imgScale = s
     S.current.origWidth = imageWidth
     S.current.origHeight = imageHeight
     S.current.tx = { x: (w - displayW) / 2, y: 0, z: 1 }
-    setCanvasSize({ width: w, height: displayH })
+    setCanvasSize({ width: w, height: fullscreen ? maxH : displayH })
     scheduleRender()
-  }, [imageWidth, imageHeight, scheduleRender])
+  }, [imageWidth, imageHeight, scheduleRender, fullscreen])
 
   useEffect(() => { scheduleRender() }, [canvasSize, scheduleRender])
 
@@ -167,9 +147,8 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
     if (!overlay) return
     const getPos = e => { const r = overlay.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
     const onMouseDown = e => {
-      const pos = getPos(e)
       S.current.isDragging = false
-      S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
+      S.current.dragOrigin = { mx: getPos(e).x, my: getPos(e).y, tx: S.current.tx.x, ty: S.current.tx.y }
     }
     const onMouseMove = e => {
       if (!S.current.dragOrigin) return
@@ -202,11 +181,9 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
     }
   }, [scheduleRender])
 
-  // ── Touch events ──
   useEffect(() => {
     const overlay = overlayCanvasRef.current
     if (!overlay) return
-
     const getPos = (t) => { const r = overlay.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top } }
     const getDist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
     const getMid = (t1, t2) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 })
@@ -224,7 +201,6 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
         S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
       }
     }
-
     const onTouchMove = (e) => {
       e.preventDefault()
       if (e.touches.length === 1 && S.current.dragOrigin) {
@@ -245,7 +221,6 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
         scheduleRender()
       }
     }
-
     const onTouchEnd = (e) => {
       e.preventDefault()
       S.current.dragOrigin = null
@@ -265,11 +240,44 @@ function RouteCanvas({ imageUrl, allHolds, routeHoldMap, imageWidth, imageHeight
   return (
     <div ref={containerRef} style={{
       position: 'relative', width: '100%', height: canvasSize.height,
-      borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: fullscreen ? 0 : 2,
+      border: fullscreen ? 'none' : '1px solid rgba(255,255,255,0.08)',
       background: '#0a0908', overflow: 'hidden', cursor: 'grab', touchAction: 'none',
     }}>
       <canvas ref={imageCanvasRef} width={canvasSize.width} height={canvasSize.height} style={{ position: 'absolute', top: 0, left: 0 }} />
       <canvas ref={overlayCanvasRef} width={canvasSize.width} height={canvasSize.height} style={{ position: 'absolute', top: 0, left: 0 }} />
+    </div>
+  )
+}
+
+// ─── Fullscreen Canvas Modal ──────────────────────────────────────────────────
+function FullscreenCanvas({ imageUrl, allHolds, routeHoldMap, imageDimensions, onClose }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: '#0a0908', display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{
+        height: 52, display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        padding: '0 16px', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        <button onClick={onClose} style={{
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 2, padding: '6px 14px', color: '#f5f0eb',
+          fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 300, cursor: 'pointer',
+        }}>✕ Close</button>
+      </div>
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <RouteCanvas
+          imageUrl={imageUrl}
+          allHolds={allHolds}
+          routeHoldMap={routeHoldMap}
+          imageWidth={imageDimensions.width}
+          imageHeight={imageDimensions.height}
+          fullscreen
+        />
+      </div>
     </div>
   )
 }
@@ -279,7 +287,15 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .rd-root { min-height: 100vh; background-color: #0f0e0d; font-family: 'DM Sans', sans-serif; color: #f5f0eb; }
+  html, body { background: #0f0e0d; overscroll-behavior: none; }
+
+  .rd-root {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #0f0e0d;
+    font-family: 'DM Sans', sans-serif;
+    color: #f5f0eb;
+  }
 
   .rd-root::before {
     content: ''; position: fixed; inset: 0;
@@ -291,78 +307,102 @@ const styles = `
   .rd-nav {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 40px; height: 60px;
-    background: rgba(15,14,13,0.85); backdrop-filter: blur(12px);
+    padding: 0 16px; height: 52px;
+    background: rgba(15,14,13,0.92); backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
   }
-  .rd-nav-left { display: flex; align-items: center; gap: 16px; }
+  .rd-nav-left { display: flex; align-items: center; gap: 12px; }
   .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; }
   .nav-back:hover { color: #ff6428; }
   .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.08em; color: #f5f0eb; }
+  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #f5f0eb; }
   .nav-logo span { color: #ff6428; }
 
-  .rd-main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 40px 40px 80px; }
+  .log-send-btn {
+    background: #ff6428; border: none; border-radius: 2px;
+    padding: 7px 14px; font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px; letter-spacing: 0.08em; color: #0f0e0d;
+    cursor: pointer; transition: background 0.2s; white-space: nowrap;
+  }
+  .log-send-btn:hover { background: #ff7a40; }
 
-  /* Layout */
-  .rd-layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; align-items: start; }
-
-  /* Canvas col */
-  .rd-canvas-col { display: flex; flex-direction: column; gap: 12px; }
-
-  .rd-canvas-header { display: flex; align-items: center; justify-content: space-between; }
-
-  .rd-title { font-family: 'Bebas Neue', sans-serif; font-size: 42px; letter-spacing: 0.03em; line-height: 0.95; }
-
-  .rd-grade {
-    font-family: 'Bebas Neue', sans-serif; font-size: 42px;
-    letter-spacing: 0.03em; margin-left: 12px;
+  .rd-main {
+    position: relative; z-index: 1;
+    max-width: 1200px; margin: 0 auto;
+    padding: 20px 16px 60px;
   }
 
-  .rd-hint { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2); }
+  .rd-layout { display: grid; grid-template-columns: 1fr; gap: 0; align-items: start; }
 
-  /* Legend */
-  .rd-legend { display: flex; gap: 16px; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
-  .legend-dot { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; }
+  .rd-canvas-col { display: flex; flex-direction: column; gap: 10px; }
 
-  /* Sidebar */
-  .rd-sidebar { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
+  .rd-route-header {
+    display: flex; align-items: baseline; gap: 0; flex-wrap: nowrap; overflow: hidden;
+  }
+  .rd-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    letter-spacing: 0.03em; line-height: 1; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .rd-grade {
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    letter-spacing: 0.03em; margin-left: 10px; flex-shrink: 0;
+  }
+
+  .rd-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid; flex-shrink: 0; }
+
+  .canvas-tap-hint {
+    font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2);
+    text-align: center; padding: 4px 0 0;
+  }
+
+  /* Mobile stat strip */
+  .rd-stat-strip {
+    display: flex; gap: 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 2px; overflow: hidden;
+    background: #161412;
+  }
+  .rd-stat-strip-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 10px 6px; gap: 3px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .rd-stat-strip-item:last-child { border-right: none; }
+  .strip-label { font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.3); letter-spacing: 0.06em; text-transform: uppercase; }
+  .strip-value { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; line-height: 1.1; }
+
+  .rd-sidebar { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
 
   .stat-card {
     background: #161412; border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 2px; padding: 20px;
-    display: flex; flex-direction: column; gap: 12px;
+    border-radius: 2px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
   }
-
-  .stat-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); text-transform: uppercase; }
-
+  .stat-card-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); text-transform: uppercase; }
   .stat-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .stat-label { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); letter-spacing: 0.06em; text-transform: uppercase; flex-shrink: 0; }
   .stat-value { font-size: 13px; font-weight: 400; color: #f5f0eb; text-align: right; }
   .stat-value.grade { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; }
-
   .stat-divider { height: 1px; background: rgba(255,255,255,0.05); }
-
   .description-text { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.5); line-height: 1.6; }
 
-  /* Hold breakdown */
   .hold-breakdown { display: flex; flex-direction: column; gap: 6px; }
   .hold-breakdown-row { display: flex; align-items: center; justify-content: space-between; }
   .hold-role-label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 300; }
   .hold-role-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid; flex-shrink: 0; }
   .hold-role-count { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.04em; }
 
-  /* Ascent log */
   .ascent-log { display: flex; flex-direction: column; gap: 8px; }
-
   .ascent-entry {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; border-radius: 2px;
     background: rgba(255,255,255,0.02);
     border: 1px solid rgba(255,255,255,0.04);
   }
-
   .ascent-avatar {
     width: 28px; height: 28px; border-radius: 50%;
     background: rgba(255,100,40,0.15); border: 1px solid rgba(255,100,40,0.2);
@@ -370,76 +410,77 @@ const styles = `
     font-size: 11px; font-weight: 500; color: #ff6428; flex-shrink: 0;
     font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em;
   }
-
   .ascent-info { flex: 1; min-width: 0; }
   .ascent-user { font-size: 12px; font-weight: 500; color: #f5f0eb; }
   .ascent-meta { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.3); margin-top: 1px; }
-
   .ascent-grade-pill {
     font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.04em;
     padding: 2px 7px; border-radius: 2px; flex-shrink: 0;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
   }
-
   .ascent-empty { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.2); text-align: center; padding: 16px 0; }
 
-  /* Loading */
   .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 80px; grid-column: 1/-1; }
   .loading-spinner { width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.08); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-label { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); }
 
-  @media (max-width: 860px) {
-    .rd-layout { grid-template-columns: 1fr; }
-  }
-
-  /* Modal */
+  /* Modal — slides from bottom on all screen sizes */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
     backdrop-filter: blur(4px); z-index: 100;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: flex-end; justify-content: center;
     animation: fadeIn 0.15s ease;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
   .modal {
     background: #161412; border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 36px; width: min(440px, 90vw);
-    animation: slideUp 0.2s ease;
+    border-radius: 4px 4px 0 0; padding: 28px 24px 40px;
+    width: 100%; max-width: 520px;
+    animation: slideUp 0.22s ease;
+    max-height: 92dvh; overflow-y: auto;
   }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-
-  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.05em; margin-bottom: 6px; }
-  .modal-sub { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-bottom: 24px; }
-
-  .modal-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-bottom: 20px; }
+  .modal-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .modal-field label { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.4); }
-
   .modal-field input, .modal-field select, .modal-field textarea {
     background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 10px 14px; font-size: 13px;
+    border-radius: 2px; padding: 10px 14px; font-size: 16px;
     font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb;
     outline: none; transition: border-color 0.2s; width: 100%;
+    -webkit-appearance: none;
   }
   .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus { border-color: rgba(255,100,40,0.5); }
   .modal-field textarea { resize: vertical; min-height: 72px; }
   .modal-field select option { background: #161412; }
   .modal-field input::placeholder, .modal-field textarea::placeholder { color: rgba(245,240,235,0.15); }
-
   .star-row { display: flex; align-items: center; gap: 4px; }
-  .star-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: rgba(255,255,255,0.2); transition: color 0.15s, transform 0.1s; padding: 2px; line-height: 1; }
+  .star-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: rgba(255,255,255,0.2); transition: color 0.15s; padding: 4px; line-height: 1; }
   .star-btn.active { color: #ffb347; }
-  .star-btn:hover { transform: scale(1.15); }
-  .star-label { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-left: 8px; }
-
-  .modal-error { font-size: 12px; color: #ff6060; background: rgba(255,60,60,0.08); border: 1px solid rgba(255,60,60,0.15); border-radius: 2px; padding: 8px 12px; margin-bottom: 16px; }
-
+  .star-label { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-left: 6px; }
+  .modal-error { font-size: 12px; color: #ff6060; background: rgba(255,60,60,0.08); border: 1px solid rgba(255,60,60,0.15); border-radius: 2px; padding: 8px 12px; margin-bottom: 14px; }
   .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
-  .modal-cancel { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; }
+  .modal-cancel { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; }
   .modal-cancel:hover { border-color: rgba(255,255,255,0.2); color: rgba(245,240,235,0.7); }
-  .modal-submit { background: #ff6428; border: none; border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s; }
+  .modal-submit { background: #ff6428; border: none; border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; }
   .modal-submit:hover { background: #ff7a40; }
   .modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Desktop overrides ── */
+  @media (min-width: 701px) {
+    .rd-main { padding: 32px 32px 80px; }
+    .rd-layout { grid-template-columns: 1fr 300px; gap: 28px; }
+    .rd-title { font-size: 40px; }
+    .rd-grade { font-size: 40px; }
+    .rd-nav { padding: 0 28px; }
+    .rd-hide-desktop { display: none; }
+  }
+
+  @media (max-width: 700px) {
+    .rd-hide-mobile { display: none; }
+  }
 `
 
 const GRADES = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
@@ -478,14 +519,12 @@ function LogAscentModal({ wallId, routeId, routeGrade, onClose, onLogged }) {
       <div className="modal">
         <div className="modal-title">Log Send</div>
         <div className="modal-sub">Record your ascent of this route</div>
-
         <div className="modal-field">
           <label>Suggested Grade</label>
           <select value={suggestedGrade} onChange={e => setSuggestedGrade(e.target.value)}>
             {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </div>
-
         <div className="modal-field">
           <label>Quality</label>
           <div className="star-row">
@@ -495,34 +534,18 @@ function LogAscentModal({ wallId, routeId, routeGrade, onClose, onLogged }) {
                 {n <= quality ? '★' : '☆'}
               </button>
             ))}
-            {quality > 0 && (
-              <span className="star-label">{['','Poor','Fair','Good','Great','Classic'][quality]}</span>
-            )}
+            {quality > 0 && <span className="star-label">{['','Poor','Fair','Good','Great','Classic'][quality]}</span>}
           </div>
         </div>
-
         <div className="modal-field">
           <label>Attempts</label>
-          <input
-            type="number" min="1"
-            placeholder="How many attempts?"
-            value={nAttempts}
-            onChange={e => setNAttempts(e.target.value)}
-          />
+          <input type="number" min="1" placeholder="How many attempts?" value={nAttempts} onChange={e => setNAttempts(e.target.value)} />
         </div>
-
         <div className="modal-field">
           <label>Notes</label>
-          <textarea
-            placeholder="Beta, conditions, thoughts..."
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={3}
-          />
+          <textarea placeholder="Beta, conditions, thoughts..." value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
         </div>
-
         {error && <div className="modal-error">{error}</div>}
-
         <div className="modal-actions">
           <button className="modal-cancel" onClick={onClose}>Cancel</button>
           <button className="modal-submit" onClick={handleSubmit} disabled={loading}>
@@ -537,7 +560,6 @@ function LogAscentModal({ wallId, routeId, routeGrade, onClose, onLogged }) {
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
-
 function formatRelative(iso) {
   const diff = Date.now() - new Date(iso).getTime()
   const days = Math.floor(diff / 86400000)
@@ -548,50 +570,34 @@ function formatRelative(iso) {
   return formatDate(iso)
 }
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function RouteDetailPage() {
   const { id: wallId, routeId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // const [imageUrl, setImageUrl] = useState(null)
-  // const [imageDimensions, setImageDimensions] = useState(null)
   const [showLogModal, setShowLogModal] = useState(false)
+  const [showFullscreen, setShowFullscreen] = useState(false)
 
   const { data: wall } = useQuery({
     queryKey: ['wall', wallId],
-    queryFn: async () => (await api.get(`/walls/${wallId}`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}`)).data,
   })
-
   const { data: route, isLoading: routeLoading } = useQuery({
     queryKey: ['route', wallId, routeId],
-    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}`)).data,
   })
-
   const { data: allHolds, isLoading: holdsLoading } = useQuery({
     queryKey: ['holds', wallId],
-    queryFn: async () => (await api.get(`/walls/${wallId}/holds`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}/holds`)).data,
   })
-
   const { data: routeHolds, isLoading: routeHoldsLoading } = useQuery({
     queryKey: ['routeholds', routeId],
-    queryFn: async () => (await api.get(`/routes/${routeId}/routeholds`)).data
+    queryFn: async () => (await api.get(`/routes/${routeId}/routeholds`)).data,
   })
-
   const { data: ascents } = useQuery({
     queryKey: ['ascents', routeId],
-    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}/ascents`)).data
+    queryFn: async () => (await api.get(`/walls/${wallId}/routes/${routeId}/ascents`)).data,
   })
-
-  // Load image
-  // useEffect(() => {
-  //   if (!wall?.image_path) return
-  //   api.get(`/walls/${wallId}/image`, { responseType: 'blob' }).then(res => {
-  //     const url = URL.createObjectURL(res.data)
-  //     setImageUrl(url)
-  //     const img = new window.Image()
-  //     img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-  //     img.src = url
-  //   })
-  // }, [wall?.image_path, wallId])
   const { data: imageUrl } = useQuery({
     queryKey: ['image', wallId],
     queryFn: async () => {
@@ -601,7 +607,6 @@ export default function RouteDetailPage() {
     enabled: !!wall?.image_path,
     staleTime: Infinity,
   })
-  
   const { data: imageDimensions } = useQuery({
     queryKey: ['imageDimensions', wallId],
     queryFn: () => new Promise((resolve) => {
@@ -613,24 +618,15 @@ export default function RouteDetailPage() {
     staleTime: Infinity,
   })
 
-  // Build hold_id → role map for canvas
   const routeHoldMap = {}
-  if (routeHolds) {
-    for (const rh of routeHolds) {
-      routeHoldMap[rh.hold_id] = rh.role
-    }
-  }
+  if (routeHolds) for (const rh of routeHolds) routeHoldMap[rh.hold_id] = rh.role
 
-  // Hold role counts for breakdown
   const roleCounts = {}
-  if (routeHolds) {
-    for (const rh of routeHolds) {
-      roleCounts[rh.role] = (roleCounts[rh.role] ?? 0) + 1
-    }
-  }
+  if (routeHolds) for (const rh of routeHolds) roleCounts[rh.role] = (roleCounts[rh.role] ?? 0) + 1
 
   const isLoading = routeLoading || holdsLoading || routeHoldsLoading
   const gradeCol = gradeColor(route?.grade)
+  const canvasReady = imageUrl && imageDimensions && allHolds
 
   const handleLogged = () => {
     setShowLogModal(false)
@@ -642,32 +638,28 @@ export default function RouteDetailPage() {
     <>
       <style>{styles}</style>
       <div className="rd-root">
+
         {showLogModal && (
           <LogAscentModal
-            wallId={wallId}
-            routeId={routeId}
-            routeGrade={route?.grade}
-            onClose={() => setShowLogModal(false)}
-            onLogged={handleLogged}
+            wallId={wallId} routeId={routeId} routeGrade={route?.grade}
+            onClose={() => setShowLogModal(false)} onLogged={handleLogged}
           />
         )}
+
+        {showFullscreen && canvasReady && (
+          <FullscreenCanvas
+            imageUrl={imageUrl} allHolds={allHolds} routeHoldMap={routeHoldMap}
+            imageDimensions={imageDimensions} onClose={() => setShowFullscreen(false)}
+          />
+        )}
+
         <nav className="rd-nav">
           <div className="rd-nav-left">
             <button className="nav-back" onClick={() => navigate(`/walls/${wallId}/detail`)}>← Back</button>
             <div className="nav-divider" />
             <div className="nav-logo">Home<span>Board</span></div>
           </div>
-          <button
-            onClick={() => setShowLogModal(true)}
-            style={{
-              background: '#ff6428', border: 'none', borderRadius: 2,
-              padding: '8px 20px', fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 16, letterSpacing: '0.08em', color: '#0f0e0d',
-              cursor: 'pointer', transition: 'background 0.2s',
-            }}
-          >
-            + Log Send
-          </button>
+          <button className="log-send-btn" onClick={() => setShowLogModal(true)}>+ Log Send</button>
         </nav>
 
         <main className="rd-main">
@@ -679,55 +671,81 @@ export default function RouteDetailPage() {
           ) : (
             <div className="rd-layout">
 
-              {/* Canvas column */}
               <div className="rd-canvas-col">
-                <div className="rd-canvas-header">
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
-                    <h1 className="rd-title">{route?.name}</h1>
-                    <span className="rd-grade" style={{ color: gradeCol }}> · {route?.grade}</span>
-                  </div>
-                  <span className="rd-hint">Pinch to zoom · Drag to pan</span>
+                {/* Title + grade */}
+                <div className="rd-route-header">
+                  <h1 className="rd-title">{route?.name}</h1>
+                  <span className="rd-grade" style={{ color: gradeCol }}> · {route?.grade}</span>
                 </div>
 
-                {/* Legend */}
+                {/* Legend — counts inline */}
                 <div className="rd-legend">
                   {Object.entries(ROLE_COLORS).map(([role, colors]) =>
                     roleCounts[role] ? (
                       <div key={role} className="legend-item" style={{ color: colors.stroke }}>
                         <div className="legend-dot" style={{ borderColor: colors.stroke, background: colors.fill }} />
-                        {ROLE_LABELS[role]}
+                        {ROLE_LABELS[role]} {roleCounts[role]}
                       </div>
                     ) : null
                   )}
                 </div>
 
-                {imageUrl && imageDimensions && allHolds ? (
-                  <RouteCanvas
-                    imageUrl={imageUrl}
-                    allHolds={allHolds}
-                    routeHoldMap={routeHoldMap}
-                    imageWidth={imageDimensions.width}
-                    imageHeight={imageDimensions.height}
-                  />
+                {/* Canvas */}
+                {canvasReady ? (
+                  <div onClick={() => setShowFullscreen(true)} style={{ cursor: 'pointer' }}>
+                    <RouteCanvas
+                      imageUrl={imageUrl} allHolds={allHolds} routeHoldMap={routeHoldMap}
+                      imageWidth={imageDimensions.width} imageHeight={imageDimensions.height}
+                    />
+                  </div>
                 ) : wall?.image_path ? (
                   <div className="loading-state">
                     <div className="loading-spinner" />
                     <div className="loading-label">Loading image...</div>
                   </div>
                 ) : (
-                  <div style={{ padding: 80, textAlign: 'center', color: 'rgba(245,240,235,0.2)', fontSize: 13 }}>
+                  <div style={{ padding: 60, textAlign: 'center', color: 'rgba(245,240,235,0.2)', fontSize: 13 }}>
                     No image available
                   </div>
                 )}
+
+                {canvasReady && (
+                  <div className="canvas-tap-hint">Tap to expand · Pinch to zoom · Drag to pan</div>
+                )}
+
+                {/* Stat strip — always visible, compact */}
+                <div className="rd-stat-strip">
+                  <div className="rd-stat-strip-item">
+                    <span className="strip-label">Grade</span>
+                    <span className="strip-value" style={{ color: gradeCol }}>{route?.grade}</span>
+                  </div>
+                  <div className="rd-stat-strip-item">
+                    <span className="strip-label">Sends</span>
+                    <span className="strip-value" style={{ color: '#ff6428' }}>{route?.ascent_count ?? 0}</span>
+                  </div>
+                  {route?.mode_suggested_grade && route.mode_suggested_grade !== route.grade && (
+                    <div className="rd-stat-strip-item">
+                      <span className="strip-label">Consensus</span>
+                      <span className="strip-value" style={{ color: gradeColor(route.mode_suggested_grade) }}>
+                        {route.mode_suggested_grade}
+                      </span>
+                    </div>
+                  )}
+                  <div className="rd-stat-strip-item">
+                    <span className="strip-label">Set by</span>
+                    <span className="strip-value" style={{ fontSize: 12, fontFamily: "'DM Sans',sans-serif", fontWeight: 400, textAlign: 'center' }}>
+                      {route?.created_by}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Sidebar */}
               <div className="rd-sidebar">
 
-                {/* Route stats */}
-                <div className="stat-card">
+                {/* Full route info card — hidden on mobile (stat strip covers it) */}
+                <div className="stat-card rd-hide-mobile">
                   <div className="stat-card-title">Route Info</div>
-
                   <div className="stat-row">
                     <span className="stat-label">Set by</span>
                     <span className="stat-value">{route?.created_by}</span>
@@ -758,7 +776,6 @@ export default function RouteDetailPage() {
                     <span className="stat-label">Sends</span>
                     <span className="stat-value grade" style={{ color: '#ff6428' }}>{route?.ascent_count ?? 0}</span>
                   </div>
-
                   {route?.description && (
                     <>
                       <div className="stat-divider" />
@@ -767,9 +784,16 @@ export default function RouteDetailPage() {
                   )}
                 </div>
 
-                {/* Hold breakdown */}
+                {/* Description on mobile — only if present */}
+                {route?.description && (
+                  <div className="stat-card rd-hide-desktop">
+                    <p className="description-text">{route.description}</p>
+                  </div>
+                )}
+
+                {/* Hold breakdown — desktop only */}
                 {Object.keys(roleCounts).length > 0 && (
-                  <div className="stat-card">
+                  <div className="stat-card rd-hide-mobile">
                     <div className="stat-card-title">Holds ({routeHolds?.length ?? 0})</div>
                     <div className="hold-breakdown">
                       {Object.entries(ROLE_COLORS).map(([role, colors]) =>
@@ -796,9 +820,7 @@ export default function RouteDetailPage() {
                     ) : (
                       ascents.slice(0, 10).map(a => (
                         <div key={a.id} className="ascent-entry">
-                          <div className="ascent-avatar">
-                            {(a.username ?? '?')[0].toUpperCase()}
-                          </div>
+                          <div className="ascent-avatar">{(a.username ?? '?')[0].toUpperCase()}</div>
                           <div className="ascent-info">
                             <div className="ascent-user">{a.username ?? `User ${a.user_id}`}</div>
                             <div className="ascent-meta">
