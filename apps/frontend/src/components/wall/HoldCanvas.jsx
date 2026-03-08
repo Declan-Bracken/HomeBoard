@@ -150,7 +150,10 @@ export default function HoldCanvas({ preview, onConfirm }) {
   useEffect(() => {
     if (!containerRef.current) return
     const w = containerRef.current.offsetWidth
-    const maxH = Math.min(window.innerHeight * 0.75, 700)
+    const isMobile = window.innerWidth <= 700
+    const maxH = isMobile
+      ? window.innerHeight * 0.60
+      : Math.min(window.innerHeight * 0.75, 700)
     const s = Math.min(w / preview.image_width, maxH / preview.image_height)
     const displayW = preview.image_width * s, displayH = preview.image_height * s
     S.current.imgScale = s; S.current.origWidth = preview.image_width; S.current.origHeight = preview.image_height
@@ -384,7 +387,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
 const toolbarStyle = {
   display: 'flex', justifyContent: 'space-between',
-  alignItems: 'center', padding: '10px 0', flexWrap: 'wrap', gap: 8,
+  alignItems: 'center', padding: '8px 0', flexWrap: 'wrap', gap: 8,
 }
 const hintStyle = {
   fontSize: 12, fontWeight: 300,
