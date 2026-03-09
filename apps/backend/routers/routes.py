@@ -32,6 +32,21 @@ def get_route_endpoint(wall_id: int, route_id:int, current_user: User = Depends(
 def get_routes_endpoint(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return rs.get_all_routes_from_wall(wall_id, current_user, db)
 
+@router.delete("/{route_id}", status_code=204)
+def delete_route_endpoint(
+    wall_id: int,
+    route_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        rs.delete_route(wall_id, route_id, current_user, db)
+        db.commit()
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # Orchestration:
 @router.post("/with-holds", response_model=RouteResponse)
 def create_route_with_holds_endpoint(
