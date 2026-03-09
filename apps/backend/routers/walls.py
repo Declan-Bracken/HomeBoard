@@ -46,6 +46,20 @@ def create_wall_endpoint(wall: WallCreate, current_user: User = Depends(get_curr
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.delete("/{wall_id}", status_code=204)
+def delete_wall_endpoint(
+    wall_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        ws.delete_wall(wall_id, current_user, db)
+        db.commit()
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/public", response_model=List[WallResponse])
 def get_public_walls_endpoint(
     db: Session = Depends(get_db)):

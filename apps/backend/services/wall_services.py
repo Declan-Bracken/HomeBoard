@@ -3,7 +3,7 @@ from db.models import Wall, WallMember, User, RoleEnum, PrivacyEnum
 from db.schemas import WallCreate, WallUpdate
 import os
 from services.control_helpers import *
-
+from storage.image_storage import delete_image
 
 # Wall CRUD
 def create_wall(wall: WallCreate, current_user, db: Session):
@@ -29,6 +29,17 @@ def get_wall(wall_id: int, db: Session):
     if not wall:
         raise ValueError("Wall not found!")
     return wall
+
+def delete_wall(wall_id: int, current_user: User, db: Session):
+    wall = get_wall(wall_id, db)
+    assert_owner(wall, current_user)
+    if wall.image_path:
+        try:
+            delete_image(wall.image_path)
+        except Exception as e:
+            print(f"Warning: failed to delete image from B2: {e}")
+    db.delete(wall)
+    db.flush()
 
 def get_wall_with_access(wall_id: int, current_user: User, db: Session) -> Wall:
     wall = get_wall(wall_id, db)

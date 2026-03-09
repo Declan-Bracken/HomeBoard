@@ -81,7 +81,6 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
 
   useEffect(() => { scheduleRender() }, [canvasSize, scheduleRender])
 
-  // ── Mouse events ──
   useEffect(() => {
     const overlay = overlayCanvasRef.current
     if (!overlay) return
@@ -116,14 +115,12 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
     }
   }, [scheduleRender])
 
-  // ── Touch events ──
   useEffect(() => {
     const overlay = overlayCanvasRef.current
     if (!overlay) return
     const getPos = t => { const r = overlay.getBoundingClientRect(); return { x: t.clientX - r.left, y: t.clientY - r.top } }
     const getDist = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY)
     const getMid = (t1, t2) => ({ x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 })
-
     const onTouchStart = e => {
       e.preventDefault()
       if (e.touches.length === 1) {
@@ -184,8 +181,32 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight }) {
   )
 }
 
+// ─── Delete Wall Modal ────────────────────────────────────────────────────────
+function DeleteWallModal({ wallName, onClose, onConfirm, loading }) {
+  return (
+    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal">
+        <div className="modal-title">Delete Wall</div>
+        <div className="modal-sub">This action is permanent and cannot be undone.</div>
+        <div className="modal-body">
+          <p className="modal-warning-text">
+            Deleting <strong style={{ color: '#f5f0eb' }}>{wallName}</strong> will permanently remove the wall,
+            all its routes, ascent logs, and the uploaded image. There is no recovery.
+          </p>
+        </div>
+        <div className="modal-actions">
+          <button className="modal-cancel" onClick={onClose} disabled={loading}>Cancel</button>
+          <button className="modal-delete" onClick={onConfirm} disabled={loading}>
+            {loading ? 'Deleting...' : 'Delete Wall'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Settings panel (owner only) ─────────────────────────────────────────────
-function SettingsPanel({ wallId, currentPrivacy, queryClient }) {
+function SettingsPanel({ wallId, currentPrivacy, queryClient, onDeleteClick }) {
   const [privacy, setPrivacy] = useState(currentPrivacy)
   const [inviteUsername, setInviteUsername] = useState('')
   const [inviteError, setInviteError] = useState(null)
@@ -243,17 +264,11 @@ function SettingsPanel({ wallId, currentPrivacy, queryClient }) {
       <div className="settings-section">
         <div className="settings-section-title">Privacy</div>
         <div className="privacy-toggle">
-          <div
-            className={`privacy-opt ${privacy === 'Private' ? 'selected' : ''}`}
-            onClick={() => handlePrivacyChange('Private')}
-          >
+          <div className={`privacy-opt ${privacy === 'Private' ? 'selected' : ''}`} onClick={() => handlePrivacyChange('Private')}>
             <span className="privacy-opt-label">🔒 Private</span>
             <span className="privacy-opt-desc">Invite only</span>
           </div>
-          <div
-            className={`privacy-opt ${privacy === 'Public' ? 'selected' : ''}`}
-            onClick={() => handlePrivacyChange('Public')}
-          >
+          <div className={`privacy-opt ${privacy === 'Public' ? 'selected' : ''}`} onClick={() => handlePrivacyChange('Public')}>
             <span className="privacy-opt-label">🌐 Public</span>
             <span className="privacy-opt-desc">Anyone can view & add routes</span>
           </div>
@@ -284,9 +299,7 @@ function SettingsPanel({ wallId, currentPrivacy, queryClient }) {
             <div key={m.user_id} className="member-row">
               <div className="member-info">
                 <span className="member-name">{m.username}</span>
-                <span className={`member-role ${m.role === 'owner' ? 'role-owner' : 'role-member'}`}>
-                  {m.role}
-                </span>
+                <span className={`member-role ${m.role === 'owner' ? 'role-owner' : 'role-member'}`}>{m.role}</span>
               </div>
               {m.role !== 'owner' && (
                 <button className="remove-btn" onClick={() => handleRemove(m.user_id, m.username)}>✕</button>
@@ -294,6 +307,13 @@ function SettingsPanel({ wallId, currentPrivacy, queryClient }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Danger zone */}
+      <div className="settings-section danger-section">
+        <div className="settings-section-title" style={{ color: 'rgba(255,80,80,0.5)' }}>Danger Zone</div>
+        <button className="delete-wall-btn" onClick={onDeleteClick}>Delete Wall</button>
+        <div className="danger-hint">Permanently removes this wall, all routes, and the uploaded image.</div>
       </div>
     </div>
   )
@@ -350,7 +370,6 @@ const styles = `
 
   .detail-main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
 
-  /* Header */
   .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
   .detail-title { font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 0.9; letter-spacing: 0.03em; }
   .detail-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -373,55 +392,27 @@ const styles = `
   .action-btn.secondary:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; background: none; }
 
   .detail-divider { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 24px; }
-
-  /* Two-col layout */
   .detail-layout { display: grid; grid-template-columns: 1fr 340px; gap: 28px; align-items: start; }
 
-  /* Routes panel */
   .routes-panel { display: flex; flex-direction: column; gap: 12px; }
   .routes-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
   .panel-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.06em; color: rgba(245,240,235,0.5); }
 
-  /* Filter bar */
   .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-  .filter-input {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 10px 12px; font-size: 13px;
-    font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb;
-    outline: none; transition: border-color 0.2s; flex: 1; min-width: 120px; min-height: 44px;
-  }
+  .filter-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; flex: 1; min-width: 120px; min-height: 44px; }
   .filter-input:focus { border-color: rgba(255,100,40,0.4); }
   .filter-input::placeholder { color: rgba(245,240,235,0.2); }
-  .filter-select {
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 2px; padding: 10px 12px; font-size: 13px;
-    font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb;
-    outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px;
-  }
+  .filter-select { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px; }
   .filter-select:focus { border-color: rgba(255,100,40,0.4); }
   .filter-select option { background: #161412; }
 
-  /* Route cards */
-  .route-card {
-    background: #161412; border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 2px; padding: 14px 16px;
-    display: flex; align-items: center; gap: 14px;
-    cursor: pointer; transition: border-color 0.2s, background 0.2s;
-    position: relative; overflow: hidden; min-height: 64px;
-  }
-  .route-card::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-    background: var(--grade-color, #ff6428); opacity: 0; transition: opacity 0.2s;
-  }
+  .route-card { background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; overflow: hidden; min-height: 64px; }
+  .route-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--grade-color, #ff6428); opacity: 0; transition: opacity 0.2s; }
   .route-card:hover { border-color: rgba(255,255,255,0.12); background: #1a1714; }
   .route-card:hover::before { opacity: 1; }
   .route-card:active { background: #1e1b17; }
 
-  .grade-badge {
-    font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em;
-    min-width: 44px; text-align: center; padding: 6px 8px; border-radius: 2px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
-  }
+  .grade-badge { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; min-width: 44px; text-align: center; padding: 6px 8px; border-radius: 2px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
   .route-card-body { flex: 1; min-width: 0; }
   .route-card-name { font-size: 14px; font-weight: 500; color: #f5f0eb; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .route-card-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -432,21 +423,15 @@ const styles = `
   .route-arrow { color: rgba(255,100,40,0.2); font-size: 14px; transition: color 0.2s; flex-shrink: 0; }
   .route-card:hover .route-arrow { color: #ff6428; }
 
-  /* Empty/loading */
   .routes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 24px; border: 1px dashed rgba(255,255,255,0.07); border-radius: 2px; color: rgba(245,240,235,0.2); }
   .routes-empty-icon { font-size: 28px; opacity: 0.3; }
   .routes-empty p { font-size: 13px; font-weight: 300; text-align: center; }
 
-  /* Wall preview panel */
   .wall-preview-panel { display: flex; flex-direction: column; gap: 10px; }
   .preview-header { display: flex; align-items: center; justify-content: space-between; }
   .canvas-hint { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2); }
 
-  /* Settings panel */
-  .settings-panel {
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 2px;
-    background: #161412; overflow: hidden;
-  }
+  .settings-panel { border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; background: #161412; overflow: hidden; }
   .settings-section { padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .settings-section:last-child { border-bottom: none; }
   .settings-section-title { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); margin-bottom: 12px; }
@@ -481,19 +466,36 @@ const styles = `
   .remove-btn:hover { color: #ff6060; background: rgba(255,60,60,0.08); }
   .members-loading { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.3); padding: 8px 0; }
 
-  /* Loading */
+  .danger-section { background: rgba(255,60,60,0.03); }
+  .delete-wall-btn { width: 100%; background: none; border: 1px solid rgba(255,60,60,0.2); border-radius: 2px; padding: 9px 16px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: rgba(255,80,80,0.6); cursor: pointer; transition: all 0.2s; text-align: left; min-height: 40px; }
+  .delete-wall-btn:hover { background: rgba(255,60,60,0.08); border-color: rgba(255,60,60,0.4); color: #ff5050; }
+  .danger-hint { font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.2); margin-top: 8px; line-height: 1.4; }
+
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: #161412; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 32px; width: min(420px, 100%); animation: slideUp 0.2s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.05em; color: #f5f0eb; margin-bottom: 6px; }
+  .modal-sub { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-bottom: 20px; }
+  .modal-body { background: rgba(255,60,60,0.06); border: 1px solid rgba(255,60,60,0.12); border-radius: 2px; padding: 14px 16px; margin-bottom: 24px; }
+  .modal-warning-text { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.6); line-height: 1.6; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-cancel { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; min-height: 44px; }
+  .modal-cancel:hover { border-color: rgba(255,255,255,0.2); color: rgba(245,240,235,0.7); }
+  .modal-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+  .modal-delete { background: rgba(255,60,60,0.12); border: 1px solid rgba(255,60,60,0.3); border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #ff5050; cursor: pointer; transition: all 0.2s; min-height: 44px; }
+  .modal-delete:hover { background: rgba(255,60,60,0.2); border-color: rgba(255,60,60,0.5); color: #ff6060; }
+  .modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
   .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 80px 40px; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; background: #161412; }
   .loading-spinner { width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.08); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-label { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); }
-
   .no-image-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px; border: 1px dashed rgba(255,255,255,0.08); border-radius: 2px; background: #161412; color: rgba(245,240,235,0.2); }
-
   .skeleton-route { background: #161412; border: 1px solid rgba(255,255,255,0.04); border-radius: 2px; padding: 14px 16px; display: flex; gap: 14px; align-items: center; }
   .skeleton-box { border-radius: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-  /* ── Responsive ── */
   @media (max-width: 680px) {
     .detail-main { padding: 16px 16px 80px; }
     .detail-title { font-size: 32px; }
@@ -505,12 +507,10 @@ const styles = `
     .filter-bar { flex-direction: column; }
     .filter-input, .filter-select { width: 100%; }
   }
-
   @media (min-width: 681px) and (max-width: 960px) {
     .detail-layout { grid-template-columns: 1fr 260px; gap: 20px; }
     .detail-main { padding: 24px 24px 60px; }
   }
-
   @media (min-width: 961px) {
     .detail-main { padding: 32px 40px 60px; }
     .detail-layout { grid-template-columns: 1fr 360px; }
@@ -538,10 +538,10 @@ export default function WallDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const currentUsername = getUsername()
-  // const [imageUrl, setImageUrl] = useState(null)
-  // const [imageDimensions, setImageDimensions] = useState(null)
   const [search, setSearch] = useState('')
   const [gradeFilter, setGradeFilter] = useState('All')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const { data: wall, isLoading: wallLoading } = useQuery({
     queryKey: ['wall', id],
@@ -558,16 +558,6 @@ export default function WallDetailPage() {
     queryFn: async () => (await api.get(`/walls/${id}/routes`)).data
   })
 
-  // useEffect(() => {
-  //   if (!wall?.image_path) return
-  //   api.get(`/walls/${id}/image`, { responseType: 'blob' }).then(res => {
-  //     const url = URL.createObjectURL(res.data)
-  //     setImageUrl(url)
-  //     const img = new window.Image()
-  //     img.onload = () => setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-  //     img.src = url
-  //   })
-  // }, [wall?.image_path, id])
   const { data: imageUrl } = useQuery({
     queryKey: ['image', id],
     queryFn: async () => {
@@ -575,9 +565,9 @@ export default function WallDetailPage() {
       return URL.createObjectURL(res.data)
     },
     enabled: !!wall?.image_path,
-    staleTime: Infinity,  // never refetch, image won't change
+    staleTime: Infinity,
   })
-  
+
   const { data: imageDimensions } = useQuery({
     queryKey: ['imageDimensions', id],
     queryFn: () => new Promise((resolve) => {
@@ -588,6 +578,19 @@ export default function WallDetailPage() {
     enabled: !!imageUrl,
     staleTime: Infinity,
   })
+
+  const handleDeleteWall = async () => {
+    setDeleteLoading(true)
+    try {
+      await api.delete(`/walls/${id}`)
+      queryClient.invalidateQueries({ queryKey: ['walls'] })
+      queryClient.invalidateQueries({ queryKey: ['publicWalls'] })
+      navigate('/home')
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to delete wall')
+      setDeleteLoading(false)
+    }
+  }
 
   const filteredRoutes = (routes ?? []).filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase())
@@ -602,6 +605,15 @@ export default function WallDetailPage() {
     <>
       <style>{styles}</style>
       <div className="detail-root">
+        {showDeleteModal && (
+          <DeleteWallModal
+            wallName={wall?.name ?? `Wall #${id}`}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleDeleteWall}
+            loading={deleteLoading}
+          />
+        )}
+
         <nav className="detail-nav">
           <div className="nav-left">
             <button className="nav-back" onClick={() => navigate('/home')}>← Back</button>
@@ -644,13 +656,10 @@ export default function WallDetailPage() {
             </div>
           ) : (
             <div className="detail-layout">
-
-              {/* Routes panel */}
               <div className="routes-panel">
                 <div className="routes-panel-header">
                   <span className="panel-title">Routes</span>
                 </div>
-
                 <div className="filter-bar">
                   <input
                     className="filter-input"
@@ -685,26 +694,15 @@ export default function WallDetailPage() {
                         style={{ '--grade-color': color }}
                         onClick={() => navigate(`/walls/${id}/routes/${route.id}`)}
                       >
-                        <div className="grade-badge" style={{ color }}>
-                          {route.grade}
-                        </div>
+                        <div className="grade-badge" style={{ color }}>{route.grade}</div>
                         <div className="route-card-body">
                           <div className="route-card-name">{route.name}</div>
                           <div className="route-card-meta">
-                            <div className="route-meta-item">
-                              <div className="route-meta-dot" />
-                              {route.created_by}
-                            </div>
-                            <div className="route-meta-item">
-                              <div className="route-meta-dot" />
-                              {formatDate(route.created_at)}
-                            </div>
+                            <div className="route-meta-item"><div className="route-meta-dot" />{route.created_by}</div>
+                            <div className="route-meta-item"><div className="route-meta-dot" />{formatDate(route.created_at)}</div>
                           </div>
                         </div>
-                        <div className="ascent-count" style={{ color: 'rgba(245,240,235,0.3)' }}>
-                          {route.ascent_count ?? 0}
-                          <span>sends</span>
-                        </div>
+                        <div className="ascent-count">{route.ascent_count ?? 0}<span>sends</span></div>
                         <div className="route-arrow">→</div>
                       </div>
                     )
@@ -712,7 +710,6 @@ export default function WallDetailPage() {
                 )}
               </div>
 
-              {/* Wall preview + settings */}
               <div className="wall-preview-panel">
                 <div className="preview-header">
                   <span className="panel-title">Wall</span>
@@ -745,10 +742,10 @@ export default function WallDetailPage() {
                     wallId={id}
                     currentPrivacy={wall.privacy}
                     queryClient={queryClient}
+                    onDeleteClick={() => setShowDeleteModal(true)}
                   />
                 )}
               </div>
-
             </div>
           )}
         </main>
