@@ -2,15 +2,16 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
+import { renderCanvas, ROLE_COLORS } from '../utils/canvasRenderer'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLES = [null, 'any', 'foot', 'start', 'end']
-const ROLE_COLORS = {
-  any:   { fill: 'rgba(255,100,40,0.35)',  stroke: '#ff6428' },
-  start: { fill: 'rgba(64,255,128,0.35)',  stroke: '#40ff80' },
-  end:   { fill: 'rgba(255,64,64,0.35)',   stroke: '#ff4040' },
-  foot:  { fill: 'rgba(100,200,255,0.35)', stroke: '#64c8ff' },
-}
+// const ROLE_COLORS = {
+//   any:   { fill: 'rgba(255,100,40,0.35)',  stroke: '#ff6428' },
+//   start: { fill: 'rgba(64,255,128,0.35)',  stroke: '#40ff80' },
+//   end:   { fill: 'rgba(255,64,64,0.35)',   stroke: '#ff4040' },
+//   foot:  { fill: 'rgba(100,200,255,0.35)', stroke: '#64c8ff' },
+// }
 const ROLE_LABELS = { any: 'Any', start: 'Start', end: 'End', foot: 'Foot' }
 const GRADES = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
 
@@ -50,75 +51,6 @@ function hitTest(screenX, screenY, polygon, imgScale, tx) {
   return inside
 }
 
-// ─── Canvas renderer ──────────────────────────────────────────────────────────
-function renderCanvas(imageCanvas, overlayCanvas, img, holds, holdRolesRef, state) {
-  if (!imageCanvas || !overlayCanvas) return
-  const { tx, imgScale, origWidth, origHeight } = state
-  const holdRoles = holdRolesRef.current
-
-  const ic = imageCanvas.getContext('2d')
-  ic.clearRect(0, 0, imageCanvas.width, imageCanvas.height)
-  if (img) {
-    ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
-    ic.fillStyle = 'rgba(0,0,0,0.45)'
-    ic.fillRect(0, 0, imageCanvas.width, imageCanvas.height)
-  }
-
-  const oc = overlayCanvas.getContext('2d')
-  oc.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
-
-  for (const hold of holds) {
-    const pts = hold.polygon
-    if (!pts || pts.length < 2) continue
-    const role = holdRoles[hold.id] ?? null
-
-    oc.beginPath()
-    oc.moveTo(pts[0].x * imgScale * tx.z + tx.x, pts[0].y * imgScale * tx.z + tx.y)
-    for (let i = 1; i < pts.length; i++) {
-      oc.lineTo(pts[i].x * imgScale * tx.z + tx.x, pts[i].y * imgScale * tx.z + tx.y)
-    }
-    oc.closePath()
-
-    if (role) {
-      const colors = ROLE_COLORS[role]
-      ic.save()
-      ic.globalCompositeOperation = 'destination-out'
-      ic.beginPath()
-      ic.moveTo(pts[0].x * imgScale * tx.z + tx.x, pts[0].y * imgScale * tx.z + tx.y)
-      for (let i = 1; i < pts.length; i++) {
-        ic.lineTo(pts[i].x * imgScale * tx.z + tx.x, pts[i].y * imgScale * tx.z + tx.y)
-      }
-      ic.closePath()
-      ic.fill()
-      ic.restore()
-
-      ic.save()
-      ic.beginPath()
-      ic.moveTo(pts[0].x * imgScale * tx.z + tx.x, pts[0].y * imgScale * tx.z + tx.y)
-      for (let i = 1; i < pts.length; i++) {
-        ic.lineTo(pts[i].x * imgScale * tx.z + tx.x, pts[i].y * imgScale * tx.z + tx.y)
-      }
-      ic.closePath()
-      ic.clip()
-      if (img) ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
-      ic.restore()
-
-      oc.fillStyle = colors.fill
-      oc.fill()
-      oc.strokeStyle = colors.stroke
-      oc.lineWidth = 2
-      oc.shadowColor = colors.stroke
-      oc.shadowBlur = 8
-      oc.stroke()
-      oc.shadowBlur = 0
-    } else {
-      oc.strokeStyle = 'rgba(255,255,255,0.3)'
-      oc.lineWidth = 1
-      oc.stroke()
-    }
-  }
-}
-
 // ─── Route Canvas ─────────────────────────────────────────────────────────────
 function RouteCanvas({ imageUrl, holds, holdRolesRef, onHoldClick, imageWidth, imageHeight, scheduleRenderRef }) {
   const containerRef = useRef(null)
@@ -138,7 +70,7 @@ function RouteCanvas({ imageUrl, holds, holdRolesRef, onHoldClick, imageWidth, i
   const scheduleRender = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
-      renderCanvas(imageCanvasRef.current, overlayCanvasRef.current, S.current.img, holds, holdRolesRef, S.current)
+      renderCanvas(imageCanvasRef.current, overlayCanvasRef.current, S.current.img, holds, holdRolesRef.current, S.current)
     })
   }, [holds, holdRolesRef])
 
