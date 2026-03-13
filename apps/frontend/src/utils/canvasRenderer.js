@@ -40,13 +40,18 @@ export const ROLE_COLORS = {
   export function renderCanvas(imageCanvas, overlayCanvas, img, allHolds, roleMap, state) {
     if (!imageCanvas || !overlayCanvas) return
     const { tx, imgScale, origWidth, origHeight } = state
-  
+    
     // ── Image layer ────────────────────────────────────────────────────────────
     const ic = imageCanvas.getContext('2d')
     ic.clearRect(0, 0, imageCanvas.width, imageCanvas.height)
     if (img) {
       ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
     }
+    if (img) {
+        ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
+        ic.fillStyle = 'rgba(0,0,0,0.35)'
+        ic.fillRect(0, 0, imageCanvas.width, imageCanvas.height)
+      }
   
     // ── Overlay layer ──────────────────────────────────────────────────────────
     const oc = overlayCanvas.getContext('2d')
