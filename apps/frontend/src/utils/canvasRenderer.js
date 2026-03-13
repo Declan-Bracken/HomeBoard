@@ -45,12 +45,8 @@ export const ROLE_COLORS = {
     const ic = imageCanvas.getContext('2d')
     ic.clearRect(0, 0, imageCanvas.width, imageCanvas.height)
     if (img) {
-      ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
-    }
-    // Dark background with cut out hold interiors
-    if (img) {
         ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
-        ic.fillStyle = 'rgba(0,0,0,0.35)'
+        ic.fillStyle = 'rgba(0,0,0,0.45)'
         ic.fillRect(0, 0, imageCanvas.width, imageCanvas.height)
       
         // Cut hold interiors back to full brightness
@@ -63,6 +59,7 @@ export const ROLE_COLORS = {
         }
         ic.globalCompositeOperation = 'source-over'
       }
+  
     // ── Overlay layer ──────────────────────────────────────────────────────────
     const oc = overlayCanvas.getContext('2d')
     oc.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
