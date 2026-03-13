@@ -3,10 +3,10 @@
 //
 // Role colour palette — outlines only, no fill.
 export const ROLE_COLORS = {
-    start: { stroke: '#6bcb77', glow: '#6bcb77' },
-    end:   { stroke: '#ff6428', glow: '#ff6428' },
-    any:   { stroke: '#60aaff', glow: '#60aaff' },
-    foot:  { stroke: '#c0a0ff', glow: '#c0a0ff' },
+    start: { stroke: '#6bcb77', glow: '#6bcb77' },  // green ✓
+    end:   { stroke: '#ff4040', glow: '#ff4040' },  // red
+    any:   { stroke: '#ff9030', glow: '#ff9030' },  // orange
+    foot:  { stroke: '#60aaff', glow: '#60aaff' },  // blue
   }
   
   // Build a polygon path on any canvas context.
@@ -84,13 +84,13 @@ export const ROLE_COLORS = {
       } else if (role === 'start') {
         // Solid outline
         oc.strokeStyle = colors.stroke
-        oc.lineWidth = 2.5
+        oc.lineWidth = 3
         oc.stroke()
         oc.shadowBlur = 0
   
         // Inner inset ring — shrink each point toward centroid by ~6px
         const { cx, cy } = polygonCentroidAndScale(pts, imgScale, tx)
-        const INSET = 5
+        const INSET = 10
         oc.beginPath()
         for (let i = 0; i < pts.length; i++) {
           const sx = pts[i].x * imgScale * tx.z + tx.x
@@ -103,8 +103,8 @@ export const ROLE_COLORS = {
         }
         oc.closePath()
         oc.strokeStyle = colors.stroke
-        oc.lineWidth = 1.5
-        oc.globalAlpha = 0.6
+        oc.lineWidth = 2
+        oc.globalAlpha = 0.9
         oc.stroke()
         oc.globalAlpha = 1
   
@@ -113,6 +113,17 @@ export const ROLE_COLORS = {
         oc.strokeStyle = colors.stroke
         oc.lineWidth = 1.5
         oc.globalAlpha = 0.55
+        oc.stroke()
+        oc.globalAlpha = 1
+
+        const { cx, cy } = polygonCentroidAndScale(pts, imgScale, tx)
+        const ARM = 4  // half-length of cross arms in px
+        oc.beginPath()
+        oc.moveTo(cx - ARM, cy); oc.lineTo(cx + ARM, cy)
+        oc.moveTo(cx, cy - ARM); oc.lineTo(cx, cy + ARM)
+        oc.strokeStyle = colors.stroke
+        oc.lineWidth = 2
+        oc.globalAlpha = 0.8
         oc.stroke()
         oc.globalAlpha = 1
   
