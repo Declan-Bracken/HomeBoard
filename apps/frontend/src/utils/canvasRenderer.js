@@ -47,12 +47,22 @@ export const ROLE_COLORS = {
     if (img) {
       ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
     }
+    // Dark background with cut out hold interiors
     if (img) {
         ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
         ic.fillStyle = 'rgba(0,0,0,0.35)'
         ic.fillRect(0, 0, imageCanvas.width, imageCanvas.height)
+      
+        // Cut hold interiors back to full brightness
+        ic.globalCompositeOperation = 'destination-out'
+        for (const hold of allHolds) {
+          const pts = hold.polygon
+          if (!pts || pts.length < 2) continue
+          buildPath(ic, pts, imgScale, tx)
+          ic.fill()
+        }
+        ic.globalCompositeOperation = 'source-over'
       }
-  
     // ── Overlay layer ──────────────────────────────────────────────────────────
     const oc = overlayCanvas.getContext('2d')
     oc.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
