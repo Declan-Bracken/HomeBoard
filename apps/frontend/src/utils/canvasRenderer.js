@@ -87,24 +87,13 @@ export const ROLE_COLORS = {
         oc.stroke()
         oc.shadowBlur = 0
   
-        // Inner inset ring
+        // Centroid dot
         const { cx, cy } = polygonCentroid(pts, imgScale, tx)
-        const INSET = 10
         oc.beginPath()
-        for (let i = 0; i < pts.length; i++) {
-          const sx = pts[i].x * imgScale * tx.z + tx.x
-          const sy = pts[i].y * imgScale * tx.z + tx.y
-          const dx = sx - cx, dy = sy - cy
-          const dist = Math.hypot(dx, dy) || 1
-          const nx = sx - (dx / dist) * INSET
-          const ny = sy - (dy / dist) * INSET
-          i === 0 ? oc.moveTo(nx, ny) : oc.lineTo(nx, ny)
-        }
-        oc.closePath()
-        oc.strokeStyle = colors.stroke
-        oc.lineWidth = 2
+        oc.arc(cx, cy, 4, 0, Math.PI * 2)
+        oc.fillStyle = colors.stroke
         oc.globalAlpha = 0.9
-        oc.stroke()
+        oc.fill()
         oc.globalAlpha = 1
   
       } else if (role === 'end') {
@@ -128,7 +117,7 @@ export const ROLE_COLORS = {
   
         // Cross at centroid
         const { cx, cy } = polygonCentroid(pts, imgScale, tx)
-        const ARM = 5
+        const ARM = 1
         oc.beginPath()
         oc.moveTo(cx - ARM, cy); oc.lineTo(cx + ARM, cy)
         oc.moveTo(cx, cy - ARM); oc.lineTo(cx, cy + ARM)
