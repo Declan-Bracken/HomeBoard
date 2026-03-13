@@ -21,6 +21,13 @@ def create_route_endpoint(wall_id: int, route: RouteCreate, current_user: User =
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.get("/my_ascents")
+def get_my_ascents_for_wall(wall_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        return rs.get_my_ascents(wall_id, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code = 404, detail = str(e))
+    
 @router.get("/{route_id}", response_model=RouteResponse)
 def get_route_endpoint(wall_id: int, route_id:int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
@@ -32,19 +39,19 @@ def get_route_endpoint(wall_id: int, route_id:int, current_user: User = Depends(
 def get_routes_endpoint(wall_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return rs.get_all_routes_from_wall(wall_id, current_user, db)
 
-@router.delete("/{route_id}", status_code=204)
-def delete_route_endpoint(
-    wall_id: int,
-    route_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    try:
-        rs.delete_route(wall_id, route_id, current_user, db)
-        db.commit()
-    except ValueError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+# @router.delete("/{route_id}", status_code=204)
+# def delete_route_endpoint(
+#     wall_id: int,
+#     route_id: int,
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     try:
+#         rs.delete_route(wall_id, route_id, current_user, db)
+#         db.commit()
+#     except ValueError as e:
+#         db.rollback()
+#         raise HTTPException(status_code=400, detail=str(e))
 
 
 # Orchestration:

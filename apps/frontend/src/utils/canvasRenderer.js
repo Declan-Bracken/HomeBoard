@@ -117,7 +117,7 @@ export const ROLE_COLORS = {
   
         // Cross at centroid
         const { cx, cy } = polygonCentroid(pts, imgScale, tx)
-        const ARM = 1
+        const ARM = 2
         oc.beginPath()
         oc.moveTo(cx - ARM, cy); oc.lineTo(cx + ARM, cy)
         oc.moveTo(cx, cy - ARM); oc.lineTo(cx, cy + ARM)

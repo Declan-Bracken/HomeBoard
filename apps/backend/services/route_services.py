@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from db.models import Wall, Route
+from sqlalchemy import func
+from db.models import Route, Ascent
 from db.schemas import RouteCreate, RouteHoldCreate
 from services import routehold_services as rhs
 from typing import List
@@ -36,6 +37,10 @@ def get_route_from_wall(wall_id: int, route_id: int, user: User, db: Session):
     suggestions = [a.suggested_grade for a in route.ascents if a.suggested_grade]
     mode_grade = Counter(suggestions).most_common(1)[0][0] if suggestions else None
 
+    # Get number of ascents
+    n_repeats= db.query(Ascent).filter(Ascent.route_id == route_id).count()
+    avg_quality = db.query(func.avg(Ascent.quality)).filter(Ascent.route_id == route_id).scalar()
+
     return {
         "id": route.id,
         "wall_id": route.wall_id,
@@ -46,14 +51,35 @@ def get_route_from_wall(wall_id: int, route_id: int, user: User, db: Session):
         "ascent_count": route.ascent_count,
         "description": route.description,
         "mode_suggested_grade": mode_grade,
+        "n_repeats": n_repeats,
+        "avg_quality": round(float(avg_quality), 2) if avg_quality else None,
     }
+
+# def delete_route()
 
 def get_all_routes_from_wall(wall_id: int, user: User, db: Session):
     wall = get_wall(wall_id, db)
     assert_access(wall, user, db)
     
     routes = db.query(Route).filter(Route.wall_id == wall_id).all()
-    return routes
+    
+    result = []
+    for route in routes:
+        n_repeats = db.query(Ascent).filter(Ascent.route_id == route.id).count()
+        avg_quality = db.query(func.avg(Ascent.quality)).filter(Ascent.route_id == route.id).scalar()
+        result.append({
+            "id": route.id,
+            "wall_id": route.wall_id,
+            "name": route.name,
+            "grade": route.grade,
+            "created_by": route.created_by,
+            "created_at": route.created_at,
+            "ascent_count": route.ascent_count,
+            "description": route.description,
+            "n_repeats": n_repeats,
+            "avg_quality": round(float(avg_quality), 2) if avg_quality else None,
+        })
+    return result
 
 # Orchestration
 def create_route_with_holds(wall_id: int, route_data: RouteCreate, user: User, holds_data: List[RouteHoldCreate], db: Session):
@@ -62,3 +88,14 @@ def create_route_with_holds(wall_id: int, route_data: RouteCreate, user: User, h
         rhs.create_routehold(db_route.id, hold, db)
     return db_route
 
+# User ascents for a wall:
+def get_my_ascents(wall_id: int, user: User, db: Session):
+    wall = get_wall(wall_id, db)
+    assert_access(wall, user, db)
+    
+    ascents = db.query(Ascent).join(Route).filter(
+        Route.wall_id == wall_id,
+        Ascent.user_id == user.id
+    ).all()
+    
+    return [a.route_id for a in ascents]

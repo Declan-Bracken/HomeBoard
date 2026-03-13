@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
@@ -43,7 +43,7 @@ function downsampleImage(src, maxSize) {
 
 const GRADES = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
 
-// ─── Canvas (shared by thumbnail + fullscreen) ────────────────────────────────
+// ─── Canvas ───────────────────────────────────────────────────────────────────
 function renderCanvas(imageCanvas, overlayCanvas, img, holds, state) {
   if (!imageCanvas || !overlayCanvas) return
   const { tx, imgScale, origWidth, origHeight } = state
@@ -99,7 +99,6 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight, maxHeight = 500,
 
   useEffect(() => { scheduleRender() }, [canvasSize, scheduleRender])
 
-  // Mouse
   useEffect(() => {
     if (!interactive) return
     const overlay = overlayCanvasRef.current
@@ -134,7 +133,6 @@ function WallCanvas({ imageUrl, holds, imageWidth, imageHeight, maxHeight = 500,
     }
   }, [interactive, scheduleRender])
 
-  // Touch
   useEffect(() => {
     if (!interactive) return
     const overlay = overlayCanvasRef.current
@@ -207,14 +205,7 @@ function FullscreenCanvasModal({ imageUrl, holds, imageWidth, imageHeight, onClo
       <div className="fs-modal" onClick={e => e.stopPropagation()}>
         <button className="fs-close" onClick={onClose}>✕</button>
         <div className="fs-hint">Pinch to zoom · Drag to pan</div>
-        <WallCanvas
-          imageUrl={imageUrl}
-          holds={holds}
-          imageWidth={imageWidth}
-          imageHeight={imageHeight}
-          maxHeight={window.innerHeight - 80}
-          interactive={true}
-        />
+        <WallCanvas imageUrl={imageUrl} holds={holds} imageWidth={imageWidth} imageHeight={imageHeight} maxHeight={window.innerHeight - 80} interactive={true} />
       </div>
     </div>
   )
@@ -275,17 +266,11 @@ function SettingsModal({ wallId, wallName, currentPrivacy, queryClient, onClose,
           <div className="settings-modal-title">Wall Settings</div>
           <button className="settings-modal-close" onClick={onClose}>✕</button>
         </div>
-
         <div className="settings-modal-body">
-          {/* Re-upload */}
           <div className="sm-section">
             <div className="sm-section-title">Image</div>
-            <button className="sm-action-btn" onClick={() => { onClose(); navigate(`/walls/${wallId}`) }}>
-              ↑ Re-upload Wall Image
-            </button>
+            <button className="sm-action-btn" onClick={() => { onClose(); navigate(`/walls/${wallId}`) }}>↑ Re-upload Wall Image</button>
           </div>
-
-          {/* Privacy */}
           <div className="sm-section">
             <div className="sm-section-title">Privacy</div>
             <div className="privacy-toggle">
@@ -300,47 +285,30 @@ function SettingsModal({ wallId, wallName, currentPrivacy, queryClient, onClose,
             </div>
             {privacySaving && <div className="sm-saving">Saving...</div>}
           </div>
-
-          {/* Members */}
           <div className="sm-section">
             <div className="sm-section-title">Members</div>
             <div className="invite-row">
-              <input
-                className="invite-input"
-                placeholder="Username to invite..."
-                value={inviteUsername}
-                onChange={e => setInviteUsername(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleInvite()}
-              />
-              <button className="invite-btn" onClick={handleInvite} disabled={inviteLoading}>
-                {inviteLoading ? '...' : '+ Add'}
-              </button>
+              <input className="invite-input" placeholder="Username to invite..." value={inviteUsername}
+                onChange={e => setInviteUsername(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleInvite()} />
+              <button className="invite-btn" onClick={handleInvite} disabled={inviteLoading}>{inviteLoading ? '...' : '+ Add'}</button>
             </div>
             {inviteError && <div className="invite-error">{inviteError}</div>}
             {inviteSuccess && <div className="invite-success">{inviteSuccess}</div>}
             <div className="members-list">
-              {membersLoading ? (
-                <div className="members-loading">Loading...</div>
-              ) : members?.map(m => (
+              {membersLoading ? <div className="members-loading">Loading...</div> : members?.map(m => (
                 <div key={m.user_id} className="member-row">
                   <div className="member-info">
                     <span className="member-name">{m.username}</span>
                     <span className={`member-role ${m.role === 'owner' ? 'role-owner' : 'role-member'}`}>{m.role}</span>
                   </div>
-                  {m.role !== 'owner' && (
-                    <button className="remove-btn" onClick={() => handleRemove(m.user_id, m.username)}>✕</button>
-                  )}
+                  {m.role !== 'owner' && <button className="remove-btn" onClick={() => handleRemove(m.user_id, m.username)}>✕</button>}
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Danger zone */}
           <div className="sm-section sm-danger-section">
             <div className="sm-section-title" style={{ color: 'rgba(255,80,80,0.5)' }}>Danger Zone</div>
-            <button className="delete-wall-btn" onClick={() => { onClose(); onDeleteClick() }}>
-              Delete Wall
-            </button>
+            <button className="delete-wall-btn" onClick={() => { onClose(); onDeleteClick() }}>Delete Wall</button>
             <div className="danger-hint">Permanently removes this wall, all routes, and the uploaded image.</div>
           </div>
         </div>
@@ -357,16 +325,11 @@ function DeleteWallModal({ wallName, onClose, onConfirm, loading }) {
         <div className="modal-title">Delete Wall</div>
         <div className="modal-sub">This action is permanent and cannot be undone.</div>
         <div className="modal-warning-box">
-          <p className="modal-warning-text">
-            Deleting <strong style={{ color: '#f5f0eb' }}>{wallName}</strong> will permanently remove the wall,
-            all its routes, ascent logs, and the uploaded image.
-          </p>
+          <p className="modal-warning-text">Deleting <strong style={{ color: '#f5f0eb' }}>{wallName}</strong> will permanently remove the wall, all its routes, ascent logs, and the uploaded image.</p>
         </div>
         <div className="modal-actions">
           <button className="modal-cancel" onClick={onClose} disabled={loading}>Cancel</button>
-          <button className="modal-delete" onClick={onConfirm} disabled={loading}>
-            {loading ? 'Deleting...' : 'Delete Wall'}
-          </button>
+          <button className="modal-delete" onClick={onConfirm} disabled={loading}>{loading ? 'Deleting...' : 'Delete Wall'}</button>
         </div>
       </div>
     </div>
@@ -385,90 +348,66 @@ const styles = `
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
-  /* NAV */
-  .detail-nav {
-    position: sticky; top: 0; z-index: 20;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 16px; height: 56px;
-    background: rgba(15,14,13,0.9); backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
+  .detail-nav { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 56px; background: rgba(15,14,13,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
   .nav-left { display: flex; align-items: center; gap: 12px; }
   .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px; min-width: 44px; }
   .nav-back:hover { color: #ff6428; }
   .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
   .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #f5f0eb; }
   .nav-logo span { color: #ff6428; }
-  .gear-btn {
-    background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px;
-    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-    color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; font-size: 16px;
-  }
+  .gear-btn { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; font-size: 16px; }
   .gear-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
 
-  /* MAIN */
   .detail-main { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 20px 16px 80px; }
 
-  /* HEADER */
   .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
   .detail-title { font-family: 'Bebas Neue', sans-serif; font-size: 36px; line-height: 0.9; letter-spacing: 0.03em; }
   .detail-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
   .detail-subtitle { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.35); }
-  .new-route-btn {
-    background: #ff6428; border: none; border-radius: 2px; padding: 10px 16px;
-    font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.08em;
-    color: #0f0e0d; cursor: pointer; transition: background 0.2s; white-space: nowrap;
-    min-height: 44px; flex-shrink: 0;
-  }
+  .new-route-btn { background: #ff6428; border: none; border-radius: 2px; padding: 10px 16px; font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s; white-space: nowrap; min-height: 44px; flex-shrink: 0; }
   .new-route-btn:hover { background: #ff7a40; }
 
   .privacy-badge { font-size: 9px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 7px; border-radius: 2px; }
   .privacy-badge-public { background: rgba(107,203,119,0.1); color: rgba(107,203,119,0.7); border: 1px solid rgba(107,203,119,0.2); }
   .privacy-badge-private { background: rgba(255,255,255,0.04); color: rgba(245,240,235,0.3); border: 1px solid rgba(255,255,255,0.08); }
 
-  /* WALL THUMBNAIL */
-  .wall-thumbnail-wrap {
-    border-radius: 2px; border: 1px solid rgba(255,255,255,0.07);
-    overflow: hidden; margin-bottom: 20px; cursor: pointer; position: relative;
-    transition: border-color 0.2s;
-  }
+  .wall-thumbnail-wrap { border-radius: 2px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; margin-bottom: 20px; cursor: pointer; position: relative; transition: border-color 0.2s; }
   .wall-thumbnail-wrap:hover { border-color: rgba(255,100,40,0.3); }
-  .wall-thumbnail-overlay {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0); transition: background 0.2s; pointer-events: none;
-  }
+  .wall-thumbnail-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0); transition: background 0.2s; pointer-events: none; }
   .wall-thumbnail-wrap:hover .wall-thumbnail-overlay { background: rgba(0,0,0,0.25); }
-  .wall-thumbnail-icon {
-    background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 2px; padding: 6px 10px; font-size: 11px; font-weight: 500;
-    letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.7);
-    opacity: 0; transition: opacity 0.2s;
-  }
+  .wall-thumbnail-icon { background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 2px; padding: 6px 10px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.7); opacity: 0; transition: opacity 0.2s; }
   .wall-thumbnail-wrap:hover .wall-thumbnail-icon { opacity: 1; }
-  .wall-thumbnail-loading {
-    height: 100px; display: flex; align-items: center; justify-content: center;
-    background: #161412; gap: 10px; color: rgba(245,240,235,0.25); font-size: 12px; font-weight: 300;
-  }
+  .wall-thumbnail-loading { height: 100px; display: flex; align-items: center; justify-content: center; background: #161412; gap: 10px; color: rgba(245,240,235,0.25); font-size: 12px; font-weight: 300; }
   .thumbnail-spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.06); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
 
-  /* DIVIDER */
   .detail-divider { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 20px; }
+
+  /* VIEW TABS */
+  .view-tabs { display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
+  .view-tab { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 7px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: rgba(245,240,235,0.35); cursor: pointer; transition: all 0.15s; white-space: nowrap; min-height: 36px; flex-shrink: 0; }
+  .view-tab:hover { color: rgba(245,240,235,0.6); border-color: rgba(255,255,255,0.14); }
+  .view-tab.active { background: rgba(255,100,40,0.1); border-color: rgba(255,100,40,0.35); color: #ff6428; }
 
   /* FILTER BAR */
   .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; }
   .filter-input { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 44px; }
   .filter-input:focus { border-color: rgba(255,100,40,0.4); }
   .filter-input::placeholder { color: rgba(245,240,235,0.2); }
-  .filter-select { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px; }
+  .filter-select { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px; }
   .filter-select:focus { border-color: rgba(255,100,40,0.4); }
   .filter-select option { background: #161412; }
 
   /* ROUTE LIST */
   .routes-list { display: flex; flex-direction: column; gap: 8px; }
-  .route-card { background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; overflow: hidden; min-height: 64px; }
+
+  .route-card { border-radius: 2px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; overflow: hidden; min-height: 64px; background: #161412; border: 1px solid rgba(255,255,255,0.06); }
+  .route-card.sent { background: rgba(107,203,119,0.05); border-color: rgba(107,203,119,0.15); }
   .route-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--grade-color, #ff6428); opacity: 0; transition: opacity 0.2s; }
   .route-card:hover { border-color: rgba(255,255,255,0.12); background: #1a1714; }
+  .route-card.sent:hover { background: rgba(107,203,119,0.08); border-color: rgba(107,203,119,0.25); }
   .route-card:hover::before { opacity: 1; }
+
+  .sent-check { font-size: 13px; color: #6bcb77; flex-shrink: 0; }
   .grade-badge { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; min-width: 44px; text-align: center; padding: 6px 8px; border-radius: 2px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; }
   .route-card-body { flex: 1; min-width: 0; }
   .route-card-name { font-size: 14px; font-weight: 500; color: #f5f0eb; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -477,27 +416,29 @@ const styles = `
   .route-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,100,40,0.4); }
   .ascent-count { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: rgba(245,240,235,0.25); flex-shrink: 0; text-align: center; }
   .ascent-count span { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 300; display: block; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+
+  .save-btn { background: none; border: none; padding: 6px; cursor: pointer; font-size: 16px; flex-shrink: 0; color: rgba(245,240,235,0.2); transition: color 0.15s, transform 0.15s; line-height: 1; }
+  .save-btn:hover { transform: scale(1.2); }
+  .save-btn.liked { color: #ff6060; }
+  .save-btn.todo { color: #ffb347; }
+
   .route-arrow { color: rgba(255,100,40,0.2); font-size: 14px; transition: color 0.2s; flex-shrink: 0; }
   .route-card:hover .route-arrow { color: #ff6428; }
 
-  /* SKELETON */
   .skeleton-route { background: #161412; border: 1px solid rgba(255,255,255,0.04); border-radius: 2px; padding: 14px 16px; display: flex; gap: 14px; align-items: center; }
   .skeleton-box { border-radius: 2px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-  /* EMPTY */
   .routes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 48px 24px; border: 1px dashed rgba(255,255,255,0.07); border-radius: 2px; color: rgba(245,240,235,0.2); }
   .routes-empty-icon { font-size: 28px; opacity: 0.3; }
   .routes-empty p { font-size: 13px; font-weight: 300; text-align: center; }
 
-  /* FULLSCREEN CANVAS MODAL */
   .fs-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 50; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.15s ease; }
   .fs-modal { position: relative; width: 100%; max-width: 900px; padding: 0 16px; }
   .fs-close { position: absolute; top: -44px; right: 16px; background: none; border: 1px solid rgba(255,255,255,0.12); border-radius: 2px; width: 36px; height: 36px; color: rgba(245,240,235,0.5); cursor: pointer; font-size: 14px; transition: all 0.2s; z-index: 1; }
   .fs-close:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
   .fs-hint { position: absolute; top: -44px; left: 16px; font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.2); line-height: 36px; }
 
-  /* SETTINGS MODAL */
   .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 30; display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; padding: 0; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -508,15 +449,13 @@ const styles = `
   .settings-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.06em; color: #f5f0eb; }
   .settings-modal-close { background: none; border: none; color: rgba(245,240,235,0.3); cursor: pointer; font-size: 16px; padding: 4px; min-height: 36px; min-width: 36px; transition: color 0.15s; }
   .settings-modal-close:hover { color: #ff6428; }
-  .settings-modal-body { overflow-y: auto; padding: 16px 20px 32px; display: flex; flex-direction: column; gap: 0; }
-
+  .settings-modal-body { overflow-y: auto; padding: 16px 20px 32px; display: flex; flex-direction: column; }
   .sm-section { padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .sm-section:last-child { border-bottom: none; }
   .sm-section-title { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.12em; color: rgba(245,240,235,0.3); margin-bottom: 12px; }
   .sm-saving { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.3); margin-top: 8px; }
   .sm-action-btn { background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; color: rgba(245,240,235,0.5); cursor: pointer; transition: all 0.2s; min-height: 40px; width: 100%; text-align: left; }
   .sm-action-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
-
   .privacy-toggle { display: flex; gap: 8px; }
   .privacy-opt { flex: 1; padding: 10px 12px; border-radius: 2px; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); transition: all 0.15s; }
   .privacy-opt-label { font-size: 13px; font-weight: 500; color: rgba(245,240,235,0.5); display: block; margin-bottom: 2px; }
@@ -524,7 +463,6 @@ const styles = `
   .privacy-opt.selected { border-color: rgba(255,100,40,0.4); background: rgba(255,100,40,0.06); }
   .privacy-opt.selected .privacy-opt-label { color: #ff6428; }
   .privacy-opt.selected .privacy-opt-desc { color: rgba(255,100,40,0.45); }
-
   .invite-row { display: flex; gap: 8px; margin-bottom: 8px; }
   .invite-input { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 44px; }
   .invite-input:focus { border-color: rgba(255,100,40,0.4); }
@@ -534,7 +472,6 @@ const styles = `
   .invite-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .invite-error { font-size: 11px; color: #ff6060; margin-bottom: 8px; }
   .invite-success { font-size: 11px; color: #6bcb77; margin-bottom: 8px; }
-
   .members-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
   .member-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 2px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); }
   .member-info { display: flex; align-items: center; gap: 8px; }
@@ -545,14 +482,12 @@ const styles = `
   .remove-btn { background: none; border: none; color: rgba(245,240,235,0.2); cursor: pointer; font-size: 13px; padding: 6px; border-radius: 2px; transition: color 0.15s, background 0.15s; min-height: 32px; min-width: 32px; }
   .remove-btn:hover { color: #ff6060; background: rgba(255,60,60,0.08); }
   .members-loading { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.3); padding: 8px 0; }
-
-  .sm-danger-section { background: rgba(255,60,60,0.02); border-radius: 0 0 2px 2px; }
+  .sm-danger-section { background: rgba(255,60,60,0.02); }
   .delete-wall-btn { width: 100%; background: none; border: 1px solid rgba(255,60,60,0.2); border-radius: 2px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: rgba(255,80,80,0.6); cursor: pointer; transition: all 0.2s; text-align: left; min-height: 44px; }
   .delete-wall-btn:hover { background: rgba(255,60,60,0.08); border-color: rgba(255,60,60,0.4); color: #ff5050; }
   .danger-hint { font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.2); margin-top: 8px; line-height: 1.5; }
 
-  /* DELETE CONFIRM MODAL */
-  .modal { background: #161412; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 28px; width: min(400px, calc(100vw - 32px)); animation: scaleIn 0.2s ease; align-self: center; margin-bottom: 0; }
+  .modal { background: #161412; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 28px; width: min(400px, calc(100vw - 32px)); animation: scaleIn 0.2s ease; align-self: center; }
   @keyframes scaleIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
   .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.05em; color: #f5f0eb; margin-bottom: 6px; }
   .modal-sub { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-bottom: 18px; }
@@ -566,7 +501,6 @@ const styles = `
   .modal-delete:hover { background: rgba(255,60,60,0.2); border-color: rgba(255,60,60,0.5); }
   .modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* PAGE LOADING */
   .page-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 100px 40px; color: rgba(245,240,235,0.3); }
   .loading-spinner { width: 28px; height: 28px; border: 2px solid rgba(255,255,255,0.08); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
 
@@ -589,26 +523,44 @@ export default function WallDetailPage() {
 
   const [search, setSearch] = useState('')
   const [gradeFilter, setGradeFilter] = useState('All')
+  const [sortBy, setSortBy] = useState('default')
+  const [viewTab, setViewTab] = useState('all')
+  const [liked, setLiked] = useState(() => JSON.parse(localStorage.getItem(`liked-${id}`) || '[]'))
+  const [todo, setTodo] = useState(() => JSON.parse(localStorage.getItem(`todo-${id}`) || '[]'))
   const [showSettings, setShowSettings] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
+  useEffect(() => { localStorage.setItem(`liked-${id}`, JSON.stringify(liked)) }, [liked, id])
+  useEffect(() => { localStorage.setItem(`todo-${id}`, JSON.stringify(todo)) }, [todo, id])
+
+  const toggleLiked = (routeId, e) => {
+    e.stopPropagation()
+    setLiked(prev => prev.includes(routeId) ? prev.filter(x => x !== routeId) : [...prev, routeId])
+  }
+  const toggleTodo = (routeId, e) => {
+    e.stopPropagation()
+    setTodo(prev => prev.includes(routeId) ? prev.filter(x => x !== routeId) : [...prev, routeId])
+  }
+
   const { data: wall, isLoading: wallLoading } = useQuery({
     queryKey: ['wall', id],
     queryFn: async () => (await api.get(`/walls/${id}`)).data,
   })
-
   const { data: holds } = useQuery({
     queryKey: ['holds', id],
     queryFn: async () => (await api.get(`/walls/${id}/holds`)).data,
   })
-
   const { data: routes, isLoading: routesLoading } = useQuery({
     queryKey: ['routes', id],
     queryFn: async () => (await api.get(`/walls/${id}/routes`)).data,
   })
-
+  const { data: mySentIds } = useQuery({
+    queryKey: ['myAscents', id],
+    queryFn: async () => (await api.get(`/walls/${id}/routes/my_ascents`)).data,
+    select: data => new Set(data),
+  })
   const { data: imageUrl } = useQuery({
     queryKey: ['image', id],
     queryFn: async () => {
@@ -618,7 +570,6 @@ export default function WallDetailPage() {
     enabled: !!wall?.image_path,
     staleTime: Infinity,
   })
-
   const { data: imageDimensions } = useQuery({
     queryKey: ['imageDimensions', id],
     queryFn: () => new Promise(resolve => {
@@ -643,49 +594,42 @@ export default function WallDetailPage() {
     }
   }
 
-  const filteredRoutes = (routes ?? []).filter(r => {
-    const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase())
-    const matchesGrade = gradeFilter === 'All' || r.grade === gradeFilter
-    return matchesSearch && matchesGrade
-  })
+  const filteredRoutes = useMemo(() => {
+    let list = routes ?? []
+    if (viewTab === 'sent') list = list.filter(r => mySentIds?.has(r.id))
+    else if (viewTab === 'liked') list = list.filter(r => liked.includes(r.id))
+    else if (viewTab === 'todo') list = list.filter(r => todo.includes(r.id))
+    list = list.filter(r =>
+      r.name.toLowerCase().includes(search.toLowerCase()) &&
+      (gradeFilter === 'All' || r.grade === gradeFilter)
+    )
+    if (sortBy === 'sends') list = [...list].sort((a, b) => (b.n_repeats ?? 0) - (a.n_repeats ?? 0))
+    else if (sortBy === 'quality') list = [...list].sort((a, b) => (b.avg_quality ?? 0) - (a.avg_quality ?? 0))
+    return list
+  }, [routes, viewTab, search, gradeFilter, sortBy, mySentIds, liked, todo])
 
   const isOwner = wall?.created_by === currentUsername
+  const sentCount = mySentIds ? (routes ?? []).filter(r => mySentIds.has(r.id)).length : 0
 
   return (
     <>
       <style>{styles}</style>
       <div className="detail-root">
 
-        {/* Modals */}
         {showSettings && isOwner && wall && (
-          <SettingsModal
-            wallId={id}
-            wallName={wall.name}
-            currentPrivacy={wall.privacy}
-            queryClient={queryClient}
-            onClose={() => setShowSettings(false)}
-            onDeleteClick={() => setShowDeleteModal(true)}
-          />
+          <SettingsModal wallId={id} wallName={wall.name} currentPrivacy={wall.privacy}
+            queryClient={queryClient} onClose={() => setShowSettings(false)} onDeleteClick={() => setShowDeleteModal(true)} />
         )}
         {showDeleteModal && (
-          <DeleteWallModal
-            wallName={wall?.name ?? `Wall #${id}`}
-            onClose={() => setShowDeleteModal(false)}
-            onConfirm={handleDeleteWall}
-            loading={deleteLoading}
-          />
+          <DeleteWallModal wallName={wall?.name ?? `Wall #${id}`}
+            onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteWall} loading={deleteLoading} />
         )}
         {showFullscreen && imageUrl && imageDimensions && holds && (
-          <FullscreenCanvasModal
-            imageUrl={imageUrl}
-            holds={holds}
-            imageWidth={imageDimensions.width}
-            imageHeight={imageDimensions.height}
-            onClose={() => setShowFullscreen(false)}
-          />
+          <FullscreenCanvasModal imageUrl={imageUrl} holds={holds}
+            imageWidth={imageDimensions.width} imageHeight={imageDimensions.height}
+            onClose={() => setShowFullscreen(false)} />
         )}
 
-        {/* Nav */}
         <nav className="detail-nav">
           <div className="nav-left">
             <button className="nav-back" onClick={() => navigate('/home')}>← Back</button>
@@ -699,12 +643,9 @@ export default function WallDetailPage() {
 
         <main className="detail-main">
           {wallLoading ? (
-            <div className="page-loading">
-              <div className="loading-spinner" />
-            </div>
+            <div className="page-loading"><div className="loading-spinner" /></div>
           ) : (
             <>
-              {/* Header */}
               <div className="detail-header">
                 <div>
                   <div className="detail-title-row">
@@ -716,62 +657,54 @@ export default function WallDetailPage() {
                     )}
                   </div>
                   <p className="detail-subtitle">
-                    {routes != null
-                      ? `${routes.length} route${routes.length !== 1 ? 's' : ''} · ${holds?.length ?? 0} holds mapped`
-                      : 'Loading...'}
+                    {routes != null ? `${routes.length} route${routes.length !== 1 ? 's' : ''} · ${holds?.length ?? 0} holds mapped` : 'Loading...'}
                   </p>
                 </div>
-                <button className="new-route-btn" onClick={() => navigate(`/walls/${id}/route/new`)}>
-                  + New Route
-                </button>
+                <button className="new-route-btn" onClick={() => navigate(`/walls/${id}/route/new`)}>+ New Route</button>
               </div>
 
-              {/* Wall thumbnail */}
               {wall?.image_path && (
-                <div
-                  className="wall-thumbnail-wrap"
-                  onClick={() => imageUrl && imageDimensions && holds && setShowFullscreen(true)}
-                >
+                <div className="wall-thumbnail-wrap" onClick={() => imageUrl && imageDimensions && holds && setShowFullscreen(true)}>
                   {imageUrl && imageDimensions && holds ? (
                     <>
-                      <WallCanvas
-                        imageUrl={imageUrl}
-                        holds={holds}
-                        imageWidth={imageDimensions.width}
-                        imageHeight={imageDimensions.height}
-                        maxHeight={160}
-                        interactive={false}
-                      />
-                      <div className="wall-thumbnail-overlay">
-                        <div className="wall-thumbnail-icon">View Wall</div>
-                      </div>
+                      <WallCanvas imageUrl={imageUrl} holds={holds} imageWidth={imageDimensions.width} imageHeight={imageDimensions.height} maxHeight={160} interactive={false} />
+                      <div className="wall-thumbnail-overlay"><div className="wall-thumbnail-icon">View Wall</div></div>
                     </>
                   ) : (
-                    <div className="wall-thumbnail-loading">
-                      <div className="thumbnail-spinner" />
-                      Loading image...
-                    </div>
+                    <div className="wall-thumbnail-loading"><div className="thumbnail-spinner" />Loading image...</div>
                   )}
                 </div>
               )}
 
               <div className="detail-divider" />
 
-              {/* Filter bar */}
+              {/* View tabs */}
+              <div className="view-tabs">
+                <button className={`view-tab ${viewTab === 'all' ? 'active' : ''}`} onClick={() => setViewTab('all')}>
+                  All {routes ? `(${routes.length})` : ''}
+                </button>
+                <button className={`view-tab ${viewTab === 'sent' ? 'active' : ''}`} onClick={() => setViewTab('sent')}>
+                  ✓ Sent{sentCount > 0 ? ` (${sentCount})` : ''}
+                </button>
+                <button className={`view-tab ${viewTab === 'liked' ? 'active' : ''}`} onClick={() => setViewTab('liked')}>
+                  ♥ Liked{liked.length > 0 ? ` (${liked.length})` : ''}
+                </button>
+                <button className={`view-tab ${viewTab === 'todo' ? 'active' : ''}`} onClick={() => setViewTab('todo')}>
+                  ★ Todo{todo.length > 0 ? ` (${todo.length})` : ''}
+                </button>
+              </div>
+
+              {/* Filter + sort bar */}
               <div className="filter-bar">
-                <input
-                  className="filter-input"
-                  placeholder="Search routes..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-                <select
-                  className="filter-select"
-                  value={gradeFilter}
-                  onChange={e => setGradeFilter(e.target.value)}
-                >
+                <input className="filter-input" placeholder="Search routes..." value={search} onChange={e => setSearch(e.target.value)} />
+                <select className="filter-select" value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}>
                   <option value="All">All Grades</option>
                   {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <select className="filter-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                  <option value="default">Default</option>
+                  <option value="sends">Most Sends</option>
+                  <option value="quality">Top Rated</option>
                 </select>
               </div>
 
@@ -790,27 +723,49 @@ export default function WallDetailPage() {
                 ) : filteredRoutes.length === 0 ? (
                   <div className="routes-empty">
                     <div className="routes-empty-icon">◻</div>
-                    <p>{routes?.length === 0 ? 'No routes yet — create the first one' : 'No routes match your filters'}</p>
+                    <p>
+                      {viewTab === 'sent' ? 'No sends yet — get on the wall' :
+                       viewTab === 'liked' ? 'No liked routes yet' :
+                       viewTab === 'todo' ? 'No routes on your todo list' :
+                       routes?.length === 0 ? 'No routes yet — create the first one' :
+                       'No routes match your filters'}
+                    </p>
                   </div>
                 ) : (
                   filteredRoutes.map(route => {
                     const color = gradeColor(route.grade)
+                    const isSent = mySentIds?.has(route.id) ?? false
+                    const isLiked = liked.includes(route.id)
+                    const isTodo = todo.includes(route.id)
                     return (
                       <div
                         key={route.id}
-                        className="route-card"
+                        className={`route-card ${isSent ? 'sent' : ''}`}
                         style={{ '--grade-color': color }}
                         onClick={() => navigate(`/walls/${id}/routes/${route.id}`)}
                       >
+                        {isSent && <div className="sent-check">✓</div>}
                         <div className="grade-badge" style={{ color }}>{route.grade}</div>
                         <div className="route-card-body">
                           <div className="route-card-name">{route.name}</div>
                           <div className="route-card-meta">
                             <div className="route-meta-item"><div className="route-meta-dot" />{route.created_by}</div>
                             <div className="route-meta-item"><div className="route-meta-dot" />{formatDate(route.created_at)}</div>
+                            {route.avg_quality != null && (
+                              <div className="route-meta-item">
+                                <div className="route-meta-dot" />
+                                {'★'.repeat(Math.round(route.avg_quality))}{'☆'.repeat(5 - Math.round(route.avg_quality))}
+                              </div>
+                            )}
                           </div>
                         </div>
-                        <div className="ascent-count">{route.ascent_count ?? 0}<span>sends</span></div>
+                        <div className="ascent-count">{route.n_repeats ?? route.ascent_count ?? 0}<span>sends</span></div>
+                        <button className={`save-btn ${isLiked ? 'liked' : ''}`} onClick={e => toggleLiked(route.id, e)} title={isLiked ? 'Unlike' : 'Like'}>
+                          {isLiked ? '♥' : '♡'}
+                        </button>
+                        <button className={`save-btn ${isTodo ? 'todo' : ''}`} onClick={e => toggleTodo(route.id, e)} title={isTodo ? 'Remove from todo' : 'Add to todo'}>
+                          {isTodo ? '★' : '☆'}
+                        </button>
                         <div className="route-arrow">→</div>
                       </div>
                     )
