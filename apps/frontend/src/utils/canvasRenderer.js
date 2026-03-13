@@ -45,19 +45,22 @@ export const ROLE_COLORS = {
     const ic = imageCanvas.getContext('2d')
     ic.clearRect(0, 0, imageCanvas.width, imageCanvas.height)
     if (img) {
+        // 1. Draw image at full brightness on image canvas — never touch it again
         ic.drawImage(img, tx.x, tx.y, origWidth * imgScale * tx.z, origHeight * imgScale * tx.z)
-        ic.fillStyle = 'rgba(0,0,0,0.45)'
-        ic.fillRect(0, 0, imageCanvas.width, imageCanvas.height)
       
-        // Cut hold interiors back to full brightness
-        ic.globalCompositeOperation = 'destination-out'
+        // 2. Draw dark overlay on the OVERLAY canvas as a base layer
+        oc.fillStyle = 'rgba(0,0,0,0.45)'
+        oc.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height)
+      
+        // 3. Punch holes in the overlay canvas at hold positions
+        oc.globalCompositeOperation = 'destination-out'
         for (const hold of allHolds) {
           const pts = hold.polygon
           if (!pts || pts.length < 2) continue
-          buildPath(ic, pts, imgScale, tx)
-          ic.fill()
+          buildPath(oc, pts, imgScale, tx)
+          oc.fill()
         }
-        ic.globalCompositeOperation = 'source-over'
+        oc.globalCompositeOperation = 'source-over'
       }
   
     // ── Overlay layer ──────────────────────────────────────────────────────────
