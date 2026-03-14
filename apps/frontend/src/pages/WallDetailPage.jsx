@@ -2,6 +2,8 @@ import { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
+import { useRouteRelations } from '../hooks/useRouteRelations'
+import SaveButtons from '../components/SaveButtons'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getUsername() {
@@ -382,13 +384,11 @@ const styles = `
 
   .detail-divider { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 20px; }
 
-  /* VIEW TABS */
   .view-tabs { display: flex; gap: 4px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 2px; }
   .view-tab { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 7px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: rgba(245,240,235,0.35); cursor: pointer; transition: all 0.15s; white-space: nowrap; min-height: 36px; flex-shrink: 0; }
   .view-tab:hover { color: rgba(245,240,235,0.6); border-color: rgba(255,255,255,0.14); }
   .view-tab.active { background: rgba(255,100,40,0.1); border-color: rgba(255,100,40,0.35); color: #ff6428; }
 
-  /* FILTER BAR */
   .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; }
   .filter-input { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 44px; }
   .filter-input:focus { border-color: rgba(255,100,40,0.4); }
@@ -397,7 +397,6 @@ const styles = `
   .filter-select:focus { border-color: rgba(255,100,40,0.4); }
   .filter-select option { background: #161412; }
 
-  /* ROUTE LIST */
   .routes-list { display: flex; flex-direction: column; gap: 8px; }
 
   .route-card { border-radius: 2px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; overflow: hidden; min-height: 64px; background: #161412; border: 1px solid rgba(255,255,255,0.06); }
@@ -416,12 +415,6 @@ const styles = `
   .route-meta-dot { width: 3px; height: 3px; border-radius: 50%; background: rgba(255,100,40,0.4); }
   .ascent-count { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: rgba(245,240,235,0.25); flex-shrink: 0; text-align: center; }
   .ascent-count span { font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 300; display: block; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
-
-  .save-btn { background: none; border: none; padding: 6px; cursor: pointer; font-size: 16px; flex-shrink: 0; color: rgba(245,240,235,0.2); transition: color 0.15s, transform 0.15s; line-height: 1; }
-  .save-btn:hover { transform: scale(1.2); }
-  .save-btn.liked { color: #ff6060; }
-  .save-btn.todo { color: #ffb347; }
-
   .route-arrow { color: rgba(255,100,40,0.2); font-size: 14px; transition: color 0.2s; flex-shrink: 0; }
   .route-card:hover .route-arrow { color: #ff6428; }
 
@@ -525,24 +518,13 @@ export default function WallDetailPage() {
   const [gradeFilter, setGradeFilter] = useState('All')
   const [sortBy, setSortBy] = useState('default')
   const [viewTab, setViewTab] = useState('all')
-  const [liked, setLiked] = useState(() => JSON.parse(localStorage.getItem(`liked-${id}`) || '[]'))
-  const [todo, setTodo] = useState(() => JSON.parse(localStorage.getItem(`todo-${id}`) || '[]'))
   const [showSettings, setShowSettings] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  useEffect(() => { localStorage.setItem(`liked-${id}`, JSON.stringify(liked)) }, [liked, id])
-  useEffect(() => { localStorage.setItem(`todo-${id}`, JSON.stringify(todo)) }, [todo, id])
-
-  const toggleLiked = (routeId, e) => {
-    e.stopPropagation()
-    setLiked(prev => prev.includes(routeId) ? prev.filter(x => x !== routeId) : [...prev, routeId])
-  }
-  const toggleTodo = (routeId, e) => {
-    e.stopPropagation()
-    setTodo(prev => prev.includes(routeId) ? prev.filter(x => x !== routeId) : [...prev, routeId])
-  }
+  // DB-backed relations
+  const { isLiked, isTodo } = useRouteRelations(id)
 
   const { data: wall, isLoading: wallLoading } = useQuery({
     queryKey: ['wall', id],
@@ -596,20 +578,22 @@ export default function WallDetailPage() {
 
   const filteredRoutes = useMemo(() => {
     let list = routes ?? []
-    if (viewTab === 'sent') list = list.filter(r => mySentIds?.has(r.id))
-    else if (viewTab === 'liked') list = list.filter(r => liked.includes(r.id))
-    else if (viewTab === 'todo') list = list.filter(r => todo.includes(r.id))
+    if (viewTab === 'sent')  list = list.filter(r => mySentIds?.has(r.id))
+    else if (viewTab === 'liked') list = list.filter(r => isLiked(r.id))
+    else if (viewTab === 'todo')  list = list.filter(r => isTodo(r.id))
     list = list.filter(r =>
       r.name.toLowerCase().includes(search.toLowerCase()) &&
       (gradeFilter === 'All' || r.grade === gradeFilter)
     )
-    if (sortBy === 'sends') list = [...list].sort((a, b) => (b.n_repeats ?? 0) - (a.n_repeats ?? 0))
-    else if (sortBy === 'quality') list = [...list].sort((a, b) => (b.avg_quality ?? 0) - (a.avg_quality ?? 0))
+    if (sortBy === 'sends')   list = [...list].sort((a, b) => (b.n_repeats ?? 0) - (a.n_repeats ?? 0))
+    if (sortBy === 'quality') list = [...list].sort((a, b) => (b.avg_quality ?? 0) - (a.avg_quality ?? 0))
     return list
-  }, [routes, viewTab, search, gradeFilter, sortBy, mySentIds, liked, todo])
+  }, [routes, viewTab, search, gradeFilter, sortBy, mySentIds, isLiked, isTodo])
 
   const isOwner = wall?.created_by === currentUsername
-  const sentCount = mySentIds ? (routes ?? []).filter(r => mySentIds.has(r.id)).length : 0
+  const sentCount  = mySentIds ? (routes ?? []).filter(r => mySentIds.has(r.id)).length : 0
+  const likedCount = (routes ?? []).filter(r => isLiked(r.id)).length
+  const todoCount  = (routes ?? []).filter(r => isTodo(r.id)).length
 
   return (
     <>
@@ -687,10 +671,10 @@ export default function WallDetailPage() {
                   ✓ Sent{sentCount > 0 ? ` (${sentCount})` : ''}
                 </button>
                 <button className={`view-tab ${viewTab === 'liked' ? 'active' : ''}`} onClick={() => setViewTab('liked')}>
-                  ♥ Liked{liked.length > 0 ? ` (${liked.length})` : ''}
+                  ♥ Liked{likedCount > 0 ? ` (${likedCount})` : ''}
                 </button>
                 <button className={`view-tab ${viewTab === 'todo' ? 'active' : ''}`} onClick={() => setViewTab('todo')}>
-                  ★ Todo{todo.length > 0 ? ` (${todo.length})` : ''}
+                  ★ Todo{todoCount > 0 ? ` (${todoCount})` : ''}
                 </button>
               </div>
 
@@ -724,9 +708,9 @@ export default function WallDetailPage() {
                   <div className="routes-empty">
                     <div className="routes-empty-icon">◻</div>
                     <p>
-                      {viewTab === 'sent' ? 'No sends yet — get on the wall' :
+                      {viewTab === 'sent'  ? 'No sends yet — get on the wall' :
                        viewTab === 'liked' ? 'No liked routes yet' :
-                       viewTab === 'todo' ? 'No routes on your todo list' :
+                       viewTab === 'todo'  ? 'No routes on your todo list' :
                        routes?.length === 0 ? 'No routes yet — create the first one' :
                        'No routes match your filters'}
                     </p>
@@ -735,8 +719,6 @@ export default function WallDetailPage() {
                   filteredRoutes.map(route => {
                     const color = gradeColor(route.grade)
                     const isSent = mySentIds?.has(route.id) ?? false
-                    const isLiked = liked.includes(route.id)
-                    const isTodo = todo.includes(route.id)
                     return (
                       <div
                         key={route.id}
@@ -760,12 +742,11 @@ export default function WallDetailPage() {
                           </div>
                         </div>
                         <div className="ascent-count">{route.n_repeats ?? route.ascent_count ?? 0}<span>sends</span></div>
-                        <button className={`save-btn ${isLiked ? 'liked' : ''}`} onClick={e => toggleLiked(route.id, e)} title={isLiked ? 'Unlike' : 'Like'}>
-                          {isLiked ? '♥' : '♡'}
-                        </button>
-                        <button className={`save-btn ${isTodo ? 'todo' : ''}`} onClick={e => toggleTodo(route.id, e)} title={isTodo ? 'Remove from todo' : 'Add to todo'}>
-                          {isTodo ? '★' : '☆'}
-                        </button>
+                        <SaveButtons
+                          routeId={route.id}
+                          wallId={id}
+                          onClick={e => e.stopPropagation()}
+                        />
                         <div className="route-arrow">→</div>
                       </div>
                     )
