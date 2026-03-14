@@ -65,6 +65,8 @@ class RouteResponse(RouteBase):
     created_at: datetime
     ascent_count: int = 0
     mode_suggested_grade: str | None = None
+    n_repeats: int = 0
+    avg_quality: int | None = None
 
     class Config:
         from_attributes = True
@@ -168,6 +170,18 @@ class UserSearchResult(BaseModel):
     created_at: datetime
     total_sends: int = 0
     public_walls: List[WallSearchResult] = []
+
+    class Config:
+        from_attributes = True
+
+class UserRouteRelationUpdate(BaseModel):
+    liked: Optional[bool] = None
+    todo: Optional[bool] = None
+
+class UserRouteRelationResponse(BaseModel):
+    route_id: int
+    liked: bool
+    todo: bool
 
     class Config:
         from_attributes = True

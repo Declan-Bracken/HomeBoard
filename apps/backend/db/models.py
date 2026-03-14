@@ -1,7 +1,7 @@
 import enum
 from typing import Optional, List
 from datetime import datetime, timezone
-from sqlalchemy import UniqueConstraint, ForeignKey, String, Integer, DateTime, Float, JSON, Enum
+from sqlalchemy import UniqueConstraint, ForeignKey, String, Integer, DateTime, Float, JSON, Enum, Boolean
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
@@ -174,3 +174,20 @@ class WallMember(Base):
 
     member: Mapped["User"] = relationship('User', back_populates="walls")
     wall: Mapped["Wall"] = relationship('Wall', back_populates="members")
+
+class UserRouteRelation(Base):
+    __tablename__ = "userroutes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "route_id", name="uq_user_route"),
+    )
+
+    # Columns:
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index = True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index = True, nullable = False)
+    route_id: Mapped[int] = mapped_column(Integer, ForeignKey("routes.id"), index=True, nullable = False)
+    liked: Mapped[bool] = mapped_column(Boolean, nullable = False, default = False)
+    todo: Mapped[bool] = mapped_column(Boolean, nullable = False, default = False)
+
+    user: Mapped["User"] = relationship('User', backref='route_relations')
+    route: Mapped["Route"] = relationship('Route', backref='user_relations')
+

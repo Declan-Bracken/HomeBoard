@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from db.models import Route, Ascent
-from db.schemas import RouteCreate, RouteHoldCreate
+from db.models import Route, Ascent, UserRouteRelation
+from db.schemas import RouteCreate, RouteHoldCreate, UserRouteRelationResponse
 from services import routehold_services as rhs
-from typing import List
+from typing import List, Optional
 from collections import Counter
 from services.control_helpers import *
 from services.wall_services import get_wall
@@ -99,3 +99,40 @@ def get_my_ascents(wall_id: int, user: User, db: Session):
     ).all()
     
     return [a.route_id for a in ascents]
+
+def upsert_route_relation(route_id: int, user: User, liked: Optional[bool], todo: Optional[bool], db: Session):
+    relation = db.query(UserRouteRelation).filter(
+        UserRouteRelation.user_id == user.id,
+        UserRouteRelation.route_id == route_id
+    ).first()
+
+    if not relation:
+        relation = UserRouteRelation(user_id=user.id, route_id=route_id, liked=False, todo=False)
+        db.add(relation)
+
+    if liked is not None:
+        relation.liked = liked
+    if todo is not None:
+        relation.todo = todo
+
+    db.commit()
+    db.refresh(relation)
+    return relation
+
+def get_wall_relations_for_user(wall_id: int, user: User, db: Session):
+    relations = (
+        db.query(UserRouteRelation)
+        .join(Route)
+        .filter(Route.wall_id == wall_id, UserRouteRelation.user_id == user.id)
+        .all()
+    )
+    return relations
+
+def get_relation(route_id: int, user: User, db: Session):
+    relation = db.query(UserRouteRelation).filter(
+        UserRouteRelation.user_id == user.id,
+        UserRouteRelation.route_id == route_id
+    ).first()
+    if not relation:
+        return UserRouteRelationResponse(route_id=route_id, liked=False, todo=False)
+    return relation
