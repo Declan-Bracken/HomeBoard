@@ -66,7 +66,7 @@ class RouteResponse(RouteBase):
     ascent_count: int = 0
     mode_suggested_grade: str | None = None
     n_repeats: int = 0
-    avg_quality: int | None = None
+    avg_quality: float | None = None
 
     class Config:
         from_attributes = True
@@ -142,7 +142,7 @@ class AscentSummary(BaseModel):
     wall_name: str
     grade: str
     n_attempts: Optional[int] = None
-    quality: Optional[float] = None
+    quality: Optional[int] = None
     suggested_grade: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
