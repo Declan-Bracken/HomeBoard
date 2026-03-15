@@ -142,7 +142,7 @@ class AscentSummary(BaseModel):
     wall_name: str
     grade: str
     n_attempts: Optional[int] = None
-    quality: Optional[int] = None
+    quality: Optional[float] = None
     suggested_grade: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
