@@ -53,27 +53,27 @@ function WallSaveButtons({ routeId, wallId, onClick }) {
 
 // ─── Single-route variant ─────────────────────────────────────────────────────
 function RouteSaveButtons({ routeId }) {
-  const { isLiked, isTodo, toggle } = useRouteRelation(routeId)
-
-  return (
-    <>
-      <button
-        style={btnStyle(isLiked, '#ff6060')}
-        onClick={() => toggle('liked')}
-        title={isLiked ? 'Unlike' : 'Like'}
-      >
-        {isLiked ? '♥' : '♡'}
-      </button>
-      <button
-        style={btnStyle(isTodo, '#ffb347')}
-        onClick={() => toggle('todo')}
-        title={isTodo ? 'Remove from todo' : 'Add to todo'}
-      >
-        {isTodo ? '★' : '☆'}
-      </button>
-    </>
-  )
-}
+    const { isLiked, isTodo, toggle } = useRouteRelation(routeId)
+  
+    return (
+      <>
+        <button
+          style={btnStyle(isLiked, '#ff6060')}
+          onClick={() => toggle('liked')}
+          title={isLiked ? 'Unlike' : 'Like'}
+        >
+          <span style={{ fontSize: isLiked ? 18 : 16 }}>{isLiked ? '♥' : '♡'}</span>
+        </button>
+        <button
+          style={btnStyle(isTodo, '#ffb347')}
+          onClick={() => toggle('todo')}
+          title={isTodo ? 'Remove from todo' : 'Add to todo'}
+        >
+          {isTodo ? '★' : '☆'}
+        </button>
+      </>
+    )
+  }
 
 // ─── Exported component ───────────────────────────────────────────────────────
 export default function SaveButtons({ routeId, wallId, onClick }) {
