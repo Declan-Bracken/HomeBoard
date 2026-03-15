@@ -3,7 +3,7 @@ from typing import List
 from sqlalchemy.orm import Session
 from db.models import User
 from db.database import get_db
-from db.schemas import RouteResponse, RouteCreate, RouteWithHoldsCreate, UserRouteRelationResponse, UserRouteRelationUpdate
+from db.schemas import RouteResponse, RouteCreate, RouteWithHoldsCreate
 from services import route_services as rs
 from core.dependencies import get_current_user
 
@@ -28,23 +28,6 @@ def get_my_ascents_for_wall(wall_id: int, user: User = Depends(get_current_user)
     except ValueError as e:
         raise HTTPException(status_code = 404, detail = str(e))
 
-# Get all relations for current user on a wall — before /{wall_id}/routes/{route_id}
-@router.get("/my_relations", response_model=List[UserRouteRelationResponse])
-def get_my_relations(wall_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return rs.get_wall_relations_for_user(wall_id, user, db)
-
-# Upsert relation for a single route
-@router.post("/relations", response_model=UserRouteRelationResponse)
-def upsert_relation(route_id: int, body: UserRouteRelationUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return rs.upsert_route_relation(route_id, user, body.liked, body.todo, db)
-
-@router.get("/relations", response_model=UserRouteRelationResponse)
-def get_my_relation(route_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    try:
-        return rs.get_relation(route_id, user, db)
-    except ValueError as e:
-        raise HTTPException(status_code = 400, detail = str(e))
-    
 @router.get("/{route_id}", response_model=RouteResponse)
 def get_route_endpoint(wall_id: int, route_id:int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
