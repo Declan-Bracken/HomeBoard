@@ -7,7 +7,7 @@ from db.schemas import UserRouteRelationResponse, UserRouteRelationUpdate
 from services import route_services as rs
 from core.dependencies import get_current_user
 
-router = APIRouter("/routes", tags=["Relations"])
+router = APIRouter(prefix="/routes", tags=["Relations"])
 
 # Get all relations for current user on a wall — before /{wall_id}/routes/{route_id}
 @router.get("/my_relations", response_model=List[UserRouteRelationResponse])
