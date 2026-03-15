@@ -11,16 +11,18 @@ import { useRouteRelations } from '../hooks/useRouteRelations'
 import { useRouteRelation }  from '../hooks/useRouteRelation'
 
 const btnStyle = (active, activeColor) => ({
-  background: 'none',
-  border: 'none',
-  padding: '6px',
-  cursor: 'pointer',
-  fontSize: 16,
-  flexShrink: 0,
-  color: active ? activeColor : 'rgba(245,240,235,0.2)',
-  transition: 'color 0.15s, transform 0.15s',
-  lineHeight: 1,
-})
+    background: 'none',
+    border: 'none',
+    padding: '6px',
+    cursor: 'pointer',
+    fontSize: 16,
+    width: 28,
+    textAlign: 'center',
+    flexShrink: 0,
+    color: active ? activeColor : 'rgba(245,240,235,0.2)',
+    transition: 'color 0.15s',
+    lineHeight: 1,
+  })
 
 // ─── Wall-level variant ───────────────────────────────────────────────────────
 function WallSaveButtons({ routeId, wallId, onClick }) {
