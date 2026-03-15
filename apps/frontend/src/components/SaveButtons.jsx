@@ -37,8 +37,8 @@ function WallSaveButtons({ routeId, wallId, onClick }) {
         style={btnStyle(isLiked(routeId), '#ff6060')}
         onClick={handleLike}
         title={isLiked(routeId) ? 'Unlike' : 'Like'}
-      >
-        {isLiked(routeId) ? '♥' : '♡'}
+        >
+        <span style={{ fontSize: isLiked(routeId) ? 18 : 16 }}> ♥</span>
       </button>
       <button
         style={btnStyle(isTodo(routeId), '#ffb347')}
