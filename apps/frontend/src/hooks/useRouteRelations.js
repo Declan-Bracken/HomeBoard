@@ -10,7 +10,7 @@ export function useRouteRelations(wallId) {
 
   const { data: relations } = useQuery({
     queryKey: ['relations', wallId],
-    queryFn: async () => (await api.get(`/walls/${wallId}/routes/my_relations`)).data,
+    queryFn: async () => (await api.get(`/routes/my_relations?wall_id=${wallId}`)).data,
     select: data => {
       // Build a map: { [routeId]: { liked, todo } }
       const map = {}

@@ -402,7 +402,7 @@ export default function RouteDetailPage() {
             <div className="nav-logo">Home<span>Board</span></div>
           </div>
           <div className="rd-nav-right">
-            <SaveButtons routeId={routeId} />
+            <SaveButtons routeId={routeId}/>
             <button className="log-send-btn" onClick={() => setShowLogModal(true)}>+ Log Send</button>
           </div>
         </nav>
