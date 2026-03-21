@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useQueryClient } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient as useQC } from '@tanstack/react-query'
 import api from '../api/axios'
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
@@ -21,7 +21,6 @@ function gradeIndex(grade) {
   return idx === -1 ? 0 : idx
 }
 
-// ─── Calendar ─────────────────────────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
@@ -85,7 +84,6 @@ function ActivityCalendar({ ascents }) {
           ))}
         </div>
       </div>
-
       <div className="calendar-body">
         <div className="calendar-days">
           {DAYS.map((d, i) => (
@@ -101,17 +99,9 @@ function ActivityCalendar({ ascents }) {
                 const isHovered = hoveredDay === dateStr
                 const isFuture = day > today
                 return (
-                  <div
-                    key={di}
-                    className="calendar-cell"
-                    style={{
-                      background: isFuture ? 'transparent' : getCellColor(dateStr),
-                      border: isHovered ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent',
-                      opacity: isFuture ? 0 : 1,
-                    }}
-                    onMouseEnter={() => setHoveredDay(dateStr)}
-                    onMouseLeave={() => setHoveredDay(null)}
-                  >
+                  <div key={di} className="calendar-cell"
+                    style={{ background: isFuture ? 'transparent' : getCellColor(dateStr), border: isHovered ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent', opacity: isFuture ? 0 : 1 }}
+                    onMouseEnter={() => setHoveredDay(dateStr)} onMouseLeave={() => setHoveredDay(null)}>
                     {isHovered && (
                       <div className="cell-tooltip">
                         <div className="tooltip-date">{dateStr}</div>
@@ -134,7 +124,6 @@ function ActivityCalendar({ ascents }) {
           ))}
         </div>
       </div>
-
       <div className="calendar-legend">
         <span className="legend-label">Less</span>
         {['V0','V3','V6','V9','V12'].map(g => (
@@ -146,16 +135,143 @@ function ActivityCalendar({ ascents }) {
   )
 }
 
+// ─── Edit Profile Modal ───────────────────────────────────────────────────────
+function EditProfileModal({ profile, onClose, onUsernameChanged }) {
+  const [username, setUsername] = useState(profile.username)
+  const [email, setEmail] = useState(profile.email ?? '')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const navigate = useNavigate()
+  const queryClient = useQC()
+
+  const handleSave = async () => {
+    setError(null)
+    if (newPassword && newPassword !== confirmPassword) {
+      setError('New passwords do not match')
+      return
+    }
+    if (newPassword && newPassword.length < 8) {
+      setError('New password must be at least 8 characters')
+      return
+    }
+    setLoading(true)
+    try {
+      const body = {}
+      if (username !== profile.username) body.username = username
+      if (email !== (profile.email ?? '')) body.email = email
+      if (newPassword) { body.current_password = currentPassword; body.new_password = newPassword }
+      if (Object.keys(body).length === 0) { onClose(); return }
+      await api.patch('/users/me', body)
+      if (body.username) {
+        // Username changed — token is stale, force re-login
+        localStorage.removeItem('token')
+        onUsernameChanged()
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['profile'] })
+        onClose()
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to save changes')
+    } finally {
+      setLoading(false) }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true)
+    try {
+      await api.delete('/users/me')
+      localStorage.removeItem('token')
+      navigate('/auth')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete account')
+      setDeleteLoading(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
+  if (showDeleteConfirm) {
+    return (
+      <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowDeleteConfirm(false) }}>
+        <div className="modal">
+          <div className="modal-title">Delete Account</div>
+          <div className="modal-sub">This cannot be undone.</div>
+          <div className="modal-warning-box">
+            <p className="modal-warning-text">
+              Your account will be permanently deleted. Your walls, routes, and ascents will remain visible to others but will no longer be associated with your account.
+            </p>
+          </div>
+          {error && <div className="modal-error">{error}</div>}
+          <div className="modal-actions">
+            <button className="modal-cancel" onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}>Cancel</button>
+            <button className="modal-delete" onClick={handleDeleteAccount} disabled={deleteLoading}>
+              {deleteLoading ? 'Deleting...' : 'Delete My Account'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal">
+        <div className="modal-title">Edit Profile</div>
+        <div className="modal-sub">Changes to username require you to log in again.</div>
+
+        <div className="modal-section-label">Account Info</div>
+        <div className="modal-field">
+          <label>Username</label>
+          <input value={username} onChange={e => setUsername(e.target.value)} placeholder="Username" />
+        </div>
+        <div className="modal-field">
+          <label>Email</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
+        </div>
+
+        <div className="modal-section-label" style={{ marginTop: 8 }}>Change Password</div>
+        <div className="modal-field">
+          <label>Current Password</label>
+          <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="Required to change password" />
+        </div>
+        <div className="modal-field">
+          <label>New Password</label>
+          <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Leave blank to keep current" />
+        </div>
+        <div className="modal-field">
+          <label>Confirm New Password</label>
+          <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm new password" />
+        </div>
+
+        {error && <div className="modal-error">{error}</div>}
+
+        <div className="modal-actions">
+          <button className="modal-cancel" onClick={onClose} disabled={loading}>Cancel</button>
+          <button className="modal-submit" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+
+        <div className="modal-danger-zone">
+          <button className="modal-danger-btn" onClick={() => setShowDeleteConfirm(true)}>
+            Delete Account
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .profile-root {
-    min-height: 100vh; background: #0f0e0d;
-    font-family: 'DM Sans', sans-serif; color: #f5f0eb;
-  }
-
+  .profile-root { min-height: 100vh; background: #0f0e0d; font-family: 'DM Sans', sans-serif; color: #f5f0eb; }
   .profile-root::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
     background-image:
@@ -164,64 +280,34 @@ const styles = `
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
-  /* Nav */
-  .profile-nav {
-    position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; height: 56px;
-    background: rgba(15,14,13,0.85); backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
+  .profile-nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 56px; background: rgba(15,14,13,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
   .nav-left { display: flex; align-items: center; gap: 12px; }
-  .nav-back {
-    background: none; border: none; font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4);
-    cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px;
-  }
+  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px; }
   .nav-back:hover { color: #ff6428; }
   .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
   .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; }
   .nav-logo span { color: #ff6428; }
 
-  /* Main */
-  .profile-main {
-    position: relative; z-index: 1; max-width: 1100px; margin: 0 auto;
-    padding: 28px 20px 80px; display: flex; flex-direction: column; gap: 36px;
-  }
+  .edit-profile-btn { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 7px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .edit-profile-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
 
-  /* Hero */
+  .profile-main { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; display: flex; flex-direction: column; gap: 36px; }
+
   .profile-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
   .profile-identity { display: flex; flex-direction: column; gap: 6px; }
-
-  .profile-avatar {
-    width: 56px; height: 56px; border-radius: 2px;
-    background: linear-gradient(135deg, rgba(255,100,40,0.2), rgba(255,100,40,0.05));
-    border: 1px solid rgba(255,100,40,0.2);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.05em;
-    color: #ff6428; margin-bottom: 12px;
-  }
-
+  .profile-avatar { width: 56px; height: 56px; border-radius: 2px; background: linear-gradient(135deg, rgba(255,100,40,0.2), rgba(255,100,40,0.05)); border: 1px solid rgba(255,100,40,0.2); display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.05em; color: #ff6428; margin-bottom: 12px; }
   .profile-username { font-family: 'Bebas Neue', sans-serif; font-size: 44px; letter-spacing: 0.03em; line-height: 0.9; }
   .profile-since { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.3); letter-spacing: 0.06em; }
 
-  /* Stat pills */
   .profile-stats { display: flex; gap: 10px; flex-wrap: wrap; }
-
-  .stat-pill {
-    background: #161412; border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 2px; padding: 12px 16px;
-    display: flex; flex-direction: column; gap: 4px; min-width: 90px;
-  }
+  .stat-pill { background: #161412; border: 1px solid rgba(255,255,255,0.06); border-radius: 2px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 90px; }
   .stat-pill-value { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.03em; line-height: 1; }
   .stat-pill-label { font-size: 9px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.35); }
 
-  /* Section */
   .profile-section { display: flex; flex-direction: column; gap: 14px; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); }
   .section-divider { height: 1px; background: rgba(255,255,255,0.05); }
 
-  /* Calendar */
   .calendar-wrap { display: flex; flex-direction: column; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
   .calendar-months { display: flex; gap: 4px; }
   .month-label { position: absolute; font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.3); letter-spacing: 0.06em; white-space: nowrap; }
@@ -230,81 +316,75 @@ const styles = `
   .day-label { font-size: 9px; font-weight: 300; color: rgba(245,240,235,0.4); height: 11px; line-height: 11px; }
   .calendar-grid { display: flex; gap: 2px; padding-top: 18px; }
   .calendar-week { display: flex; flex-direction: column; gap: 2px; }
-
-  .calendar-cell {
-    width: 11px; height: 11px; border-radius: 2px;
-    cursor: pointer; transition: transform 0.1s; position: relative; flex-shrink: 0;
-  }
+  .calendar-cell { width: 11px; height: 11px; border-radius: 2px; cursor: pointer; transition: transform 0.1s; position: relative; flex-shrink: 0; }
   .calendar-cell:hover { transform: scale(1.3); z-index: 5; }
-
-  .cell-tooltip {
-    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-    background: #1e1b18; border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 220px;
-    z-index: 20; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  }
+  .cell-tooltip { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: #1e1b18; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 220px; z-index: 20; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .tooltip-date { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; color: rgba(245,240,235,0.4); margin-bottom: 4px; text-transform: uppercase; }
   .tooltip-entry { font-size: 12px; font-weight: 300; color: #f5f0eb; line-height: 1.6; }
   .tooltip-wall { color: rgba(245,240,235,0.35); }
-
   .calendar-legend { display: flex; align-items: center; gap: 4px; margin-top: 4px; padding-left: 32px; }
   .legend-label { font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.25); margin: 0 4px; }
   .legend-cell { width: 11px; height: 11px; border-radius: 2px; }
 
-  /* Ascents table */
   .ascents-table { display: flex; flex-direction: column; gap: 2px; }
-
-  .ascent-row {
-    display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px;
-    gap: 12px; align-items: center;
-    padding: 11px 14px; border-radius: 2px;
-    background: #161412; border: 1px solid rgba(255,255,255,0.04);
-    font-size: 13px; font-weight: 300;
-    transition: border-color 0.2s, background 0.15s;
-  }
+  .ascent-row { display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px; gap: 12px; align-items: center; padding: 11px 14px; border-radius: 2px; background: #161412; border: 1px solid rgba(255,255,255,0.04); font-size: 13px; font-weight: 300; transition: border-color 0.2s, background 0.15s; }
   .ascent-row:hover { background: #1a1714; border-color: rgba(255,255,255,0.08); }
-
-  .ascent-row-header {
-    display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px;
-    gap: 12px; padding: 0 14px 8px;
-    font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
-    text-transform: uppercase; color: rgba(245,240,235,0.25);
-  }
-
-  .grade-chip {
-    font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.04em;
-    padding: 2px 7px; border-radius: 2px; display: inline-block;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
-  }
+  .ascent-row-header { display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px; gap: 12px; padding: 0 14px 8px; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.25); }
+  .grade-chip { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 2px; display: inline-block; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
   .quality-stars { color: #ffb347; font-size: 11px; letter-spacing: 1px; }
 
-  /* Empty / loading */
   .empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; border: 1px dashed rgba(255,255,255,0.06); border-radius: 2px; color: rgba(245,240,235,0.2); }
   .empty-icon { font-size: 28px; opacity: 0.3; }
   .empty-label { font-size: 13px; font-weight: 300; text-align: center; }
-
   .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 80px; }
   .loading-spinner { width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.08); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-label { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); }
 
-  /* ── Responsive ── */
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.15s ease; padding: 0; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal { background: #161412; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px 4px 0 0; padding: 28px 24px 32px; width: 100%; max-width: 520px; animation: sheetUp 0.22s ease; max-height: 92dvh; overflow-y: auto; }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.35); margin-bottom: 20px; }
+  .modal-section-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.3); margin-bottom: 10px; }
+  .modal-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .modal-field label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(245,240,235,0.4); }
+  .modal-field input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 14px; font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; width: 100%; -webkit-appearance: none; }
+  .modal-field input:focus { border-color: rgba(255,100,40,0.5); }
+  .modal-field input::placeholder { color: rgba(245,240,235,0.15); }
+  .modal-error { font-size: 12px; color: #ff6060; background: rgba(255,60,60,0.08); border: 1px solid rgba(255,60,60,0.15); border-radius: 2px; padding: 8px 12px; margin-bottom: 14px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+  .modal-cancel { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; }
+  .modal-cancel:hover { border-color: rgba(255,255,255,0.2); color: rgba(245,240,235,0.7); }
+  .modal-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+  .modal-submit { background: #ff6428; border: none; border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s; }
+  .modal-submit:hover { background: #ff7a40; }
+  .modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .modal-danger-zone { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
+  .modal-danger-btn { background: none; border: 1px solid rgba(255,60,60,0.2); border-radius: 2px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; color: rgba(255,80,80,0.6); cursor: pointer; transition: all 0.2s; width: 100%; text-align: left; }
+  .modal-danger-btn:hover { background: rgba(255,60,60,0.08); border-color: rgba(255,60,60,0.4); color: #ff5050; }
+  .modal-warning-box { background: rgba(255,60,60,0.06); border: 1px solid rgba(255,60,60,0.12); border-radius: 2px; padding: 14px 16px; margin-bottom: 22px; }
+  .modal-warning-text { font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.6); line-height: 1.6; }
+  .modal-delete { background: rgba(255,60,60,0.12); border: 1px solid rgba(255,60,60,0.3); border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #ff5050; cursor: pointer; transition: all 0.2s; }
+  .modal-delete:hover { background: rgba(255,60,60,0.2); border-color: rgba(255,60,60,0.5); }
+  .modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
   @media (max-width: 600px) {
     .profile-hero { flex-direction: column; }
     .profile-username { font-size: 36px; }
     .profile-stats { gap: 8px; }
     .stat-pill { min-width: calc(50% - 4px); flex: 1; }
-
-    /* Hide wall + quality columns on narrow screens */
-    .ascent-row, .ascent-row-header {
-      grid-template-columns: 76px 1fr 44px;
-    }
-    .ascent-row > *:nth-child(3),
-    .ascent-row-header > *:nth-child(3),
-    .ascent-row > *:nth-child(5),
-    .ascent-row-header > *:nth-child(5) { display: none; }
+    .ascent-row, .ascent-row-header { grid-template-columns: 76px 1fr 44px; }
+    .ascent-row > *:nth-child(3), .ascent-row-header > *:nth-child(3),
+    .ascent-row > *:nth-child(5), .ascent-row-header > *:nth-child(5) { display: none; }
   }
-
+  @media (min-width: 600px) {
+    .modal-backdrop { align-items: center; padding: 16px; }
+    .modal { border-radius: 2px; max-height: 85vh; }
+    @keyframes sheetUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  }
   @media (min-width: 701px) {
     .profile-nav { padding: 0 40px; height: 60px; }
     .nav-logo { font-size: 24px; }
@@ -321,11 +401,16 @@ function formatDate(iso) {
 
 export default function ProfilePage() {
   const navigate = useNavigate()
+  const [showEditModal, setShowEditModal] = useState(false)
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => (await api.get('/users/me/profile')).data,
   })
+
+  const handleUsernameChanged = () => {
+    navigate('/auth')
+  }
 
   return (
     <>
@@ -337,7 +422,16 @@ export default function ProfilePage() {
             <div className="nav-divider" />
             <div className="nav-logo">Home<span>Board</span></div>
           </div>
+          <button className="edit-profile-btn" onClick={() => setShowEditModal(true)}>Edit Profile</button>
         </nav>
+
+        {showEditModal && profile && (
+          <EditProfileModal
+            profile={profile}
+            onClose={() => setShowEditModal(false)}
+            onUsernameChanged={handleUsernameChanged}
+          />
+        )}
 
         <main className="profile-main">
           {isLoading ? (
@@ -353,7 +447,6 @@ export default function ProfilePage() {
                   <div className="profile-username">{profile.username}</div>
                   <div className="profile-since">Member since {formatDate(profile.member_since)}</div>
                 </div>
-
                 <div className="profile-stats">
                   <div className="stat-pill">
                     <span className="stat-pill-value" style={{ color: '#ff6428' }}>{profile.total_sends}</span>
@@ -404,20 +497,14 @@ export default function ProfilePage() {
                 ) : (
                   <div className="ascents-table">
                     <div className="ascent-row-header">
-                      <span>Date</span>
-                      <span>Route</span>
-                      <span>Wall</span>
-                      <span>Grade</span>
-                      <span>Quality</span>
+                      <span>Date</span><span>Route</span><span>Wall</span><span>Grade</span><span>Quality</span>
                     </div>
                     {profile.ascents.map((a, i) => (
                       <div key={i} className="ascent-row">
                         <span style={{ color: 'rgba(245,240,235,0.4)', fontSize: 12 }}>{a.date}</span>
                         <span style={{ fontWeight: 400 }}>{a.route_name}</span>
                         <span style={{ color: 'rgba(245,240,235,0.4)' }}>{a.wall_name}</span>
-                        <span>
-                          <span className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</span>
-                        </span>
+                        <span><span className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</span></span>
                         <span>
                           {a.quality
                             ? <span className="quality-stars">{'★'.repeat(a.quality)}{'☆'.repeat(5 - a.quality)}</span>

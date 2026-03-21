@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from db.models import User, Ascent, Route, Wall
 from db.schemas import UserCreate
+from typing import Optional
+from core.security import hash_password, verify_password
 
 def create_user(user: UserCreate, db: Session):
     # Check whether user already exists
@@ -70,3 +72,36 @@ def get_statistics(user_id: int, db: Session):
         "highest_redpoint_grade": highest_grade(redpoint_grades),
         "total_sends": len(ascents),
     }
+
+def update_user(user: User, username: Optional[str], email: Optional[str], 
+                current_password: Optional[str], new_password: Optional[str], db: Session):
+    
+    if username and username != user.username:
+        existing = db.query(User).filter(User.username == username).first()
+        if existing:
+            raise ValueError("Username already taken")
+        # Update created_by on walls and routes to new username
+        db.query(Wall).filter(Wall.created_by == user.username).update({"created_by": username})
+        db.query(Route).filter(Route.created_by == user.username).update({"created_by": username})
+        user.username = username
+
+    if email and email != user.email:
+        existing = db.query(User).filter(User.email == email).first()
+        if existing:
+            raise ValueError("Email already in use")
+        user.email = email
+
+    if new_password:
+        if not current_password:
+            raise ValueError("Current password required")
+        if not verify_password(current_password, user.hashed_password):
+            raise ValueError("Current password is incorrect")
+        user.hashed_password = hash_password(new_password)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+def delete_user(user: User, db: Session):
+    db.delete(user)
+    db.commit()

@@ -5,12 +5,20 @@ from typing import List, Optional, Literal
 # User
 class UserCreate(BaseModel):
     username: str
+    email: str
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
 
 class UserResponse(BaseModel):
-    username: str
     id: int
+    username: str
+    email: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

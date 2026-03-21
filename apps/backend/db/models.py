@@ -22,7 +22,7 @@ class Wall(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     image_path: Mapped[str] = mapped_column(String, nullable=True)
     privacy: Mapped[PrivacyEnum] = mapped_column(Enum(PrivacyEnum), nullable=False, default=PrivacyEnum.Private)
-    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), index = True, nullable=False)
+    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username", ondelete="SET NULL"), index = True, nullable = True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relations
@@ -63,7 +63,7 @@ class Route(Base):
     wall_id: Mapped[int] = mapped_column(Integer, ForeignKey("walls.id"), index=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     grade: Mapped[GradeEnum] = mapped_column(Enum(GradeEnum), nullable=True, default = "Unknown")
-    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username"), nullable=True)
+    created_by: Mapped[str] = mapped_column(String, ForeignKey("users.username", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     description: Mapped[Optional[str]] = mapped_column(String, nullable = True)
     ascent_count: Mapped[int] = mapped_column(Integer, nullable = False, default = 0, server_default="0")
@@ -144,7 +144,7 @@ class Ascent(Base):
     # Columns
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     route_id: Mapped[int] = mapped_column(Integer, ForeignKey("routes.id"), index=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     quality: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5
     suggested_grade: Mapped[Optional[GradeEnum]] = mapped_column(Enum(GradeEnum), nullable=True)
@@ -183,7 +183,7 @@ class UserRouteRelation(Base):
 
     # Columns:
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index = True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index = True, nullable = False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index = True, nullable = False)
     route_id: Mapped[int] = mapped_column(Integer, ForeignKey("routes.id"), index=True, nullable = False)
     liked: Mapped[bool] = mapped_column(Boolean, nullable = False, default = False)
     todo: Mapped[bool] = mapped_column(Boolean, nullable = False, default = False)
