@@ -75,53 +75,64 @@ export const ROLE_COLORS = {
       oc.shadowBlur = 10
   
       if (role === 'start') {
-        // Outer ring
+        // Solid outline
         buildPath(oc, pts, imgScale, tx)
         oc.strokeStyle = colors.stroke
-        oc.lineWidth = 3
+        oc.lineWidth = 2.5
         oc.stroke()
         oc.shadowBlur = 0
-  
-        // Centroid dot
-        const { cx, cy } = polygonCentroid(pts, imgScale, tx)
+      
+        // Two outward tick marks from top-left and top-right of bounding box
+        const xs = pts.map(p => p.x * imgScale * tx.z + tx.x)
+        const ys = pts.map(p => p.y * imgScale * tx.z + tx.y)
+        const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys)
+        const TICK = 8
+        oc.strokeStyle = colors.stroke
+        oc.lineWidth = 2
+        // Left tick
         oc.beginPath()
-        oc.arc(cx, cy, 4, 0, Math.PI * 2)
-        oc.fillStyle = colors.stroke
-        oc.globalAlpha = 0.9
-        oc.fill()
-        oc.globalAlpha = 1
-  
+        oc.moveTo(minX, minY)
+        oc.lineTo(minX - TICK, minY - TICK)
+        oc.stroke()
+        // Right tick
+        oc.beginPath()
+        oc.moveTo(maxX, minY)
+        oc.lineTo(maxX + TICK, minY - TICK)
+        oc.stroke()
+      
       } else if (role === 'end') {
+        // Solid outline
+        buildPath(oc, pts, imgScale, tx)
+        oc.strokeStyle = colors.stroke
+        oc.lineWidth = 2.5
+        oc.stroke()
+        oc.shadowBlur = 0
+      
+        // X mark above the hold centroid — exterior, not inside
+        const { cx, cy } = polygonCentroid(pts, imgScale, tx)
+        const ys = pts.map(p => p.y * imgScale * tx.z + tx.y)
+        const minY = Math.min(...ys)
+        const ARM = 6
+        const ox = cx
+        const oy = minY - 10  // above the hold
+        oc.strokeStyle = colors.stroke
+        oc.lineWidth = 2
+        oc.beginPath()
+        oc.moveTo(ox - ARM, oy - ARM); oc.lineTo(ox + ARM, oy + ARM)
+        oc.stroke()
+        oc.beginPath()
+        oc.moveTo(ox + ARM, oy - ARM); oc.lineTo(ox - ARM, oy + ARM)
+        oc.stroke()
+      
+      } else if (role === 'foot') {
         // Dashed outline
         buildPath(oc, pts, imgScale, tx)
         oc.setLineDash([5, 4])
         oc.strokeStyle = colors.stroke
-        oc.lineWidth = 2.5
+        oc.lineWidth = 2
         oc.stroke()
         oc.setLineDash([])
-  
-      } else if (role === 'foot') {
-        // Solid outline
-        buildPath(oc, pts, imgScale, tx)
-        oc.strokeStyle = colors.stroke
-        oc.lineWidth = 2
-        oc.globalAlpha = 0.7
-        oc.stroke()
-        oc.globalAlpha = 1
-        oc.shadowBlur = 0
-  
-        // Cross at centroid
-        const { cx, cy } = polygonCentroid(pts, imgScale, tx)
-        const ARM = 2
-        oc.beginPath()
-        oc.moveTo(cx - ARM, cy); oc.lineTo(cx + ARM, cy)
-        oc.moveTo(cx, cy - ARM); oc.lineTo(cx, cy + ARM)
-        oc.strokeStyle = colors.stroke
-        oc.lineWidth = 2
-        oc.globalAlpha = 0.9
-        oc.stroke()
-        oc.globalAlpha = 1
-  
+      
       } else {
         // any — solid outline
         buildPath(oc, pts, imgScale, tx)
@@ -129,7 +140,7 @@ export const ROLE_COLORS = {
         oc.lineWidth = 2
         oc.stroke()
       }
-  
+      
       oc.shadowBlur = 0
     }
   }
