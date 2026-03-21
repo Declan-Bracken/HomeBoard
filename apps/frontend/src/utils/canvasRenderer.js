@@ -51,29 +51,24 @@ export const ROLE_COLORS = {
     oc.fillStyle = 'rgba(0,0,0,0.45)'
     oc.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height)
   
-    // 2. Punch holes at every hold — image shows through at full brightness
+    // 2. Punch holes ONLY for assigned holds
     oc.globalCompositeOperation = 'destination-out'
     for (const hold of allHolds) {
       const pts = hold.polygon
       if (!pts || pts.length < 2) continue
+      const role = roleMap[hold.id] ?? null
+      if (!role) continue  // skip unassigned — leave them darkened
       buildPath(oc, pts, imgScale, tx)
       oc.fill()
     }
     oc.globalCompositeOperation = 'source-over'
-  
-    // 3. Hold outlines + role decorations
+
+    // 3. Draw outlines ONLY for assigned holds — remove the unassigned outline block entirely
     for (const hold of allHolds) {
       const pts = hold.polygon
       if (!pts || pts.length < 2) continue
       const role = roleMap[hold.id] ?? null
-  
-      if (!role) {
-        buildPath(oc, pts, imgScale, tx)
-        oc.strokeStyle = 'rgba(255,255,255,0.25)'
-        oc.lineWidth = 1
-        oc.stroke()
-        continue
-      }
+      if (!role) continue  // no outline for unassigned holds
   
       const colors = ROLE_COLORS[role]
       oc.shadowColor = colors.glow
