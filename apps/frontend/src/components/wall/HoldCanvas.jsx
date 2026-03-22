@@ -269,10 +269,11 @@ export default function HoldCanvas({ preview, onConfirm }) {
     const onTouchStart = (e) => {
       e.preventDefault()
       if (e.touches.length === 1) {
-        const pos = getPos(e.touches[0])
+        // Only a truly fresh touch if requiresFreshTouch was set and all fingers were up
         S.current.touchMoved = false
         S.current.wasMultiTouch = false
-        S.current.requiresFreshTouch = false
+        S.current.requiresFreshTouch = false  // cleared here — this is the fresh touch
+        const pos = getPos(e.touches[0])
         S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
         S.current.lastTouchDist = null
       } else if (e.touches.length === 2) {
@@ -307,19 +308,19 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
     const onTouchEnd = (e) => {
       e.preventDefault()
-
-      // If we're coming down from 2+ fingers, record the time
-      if (e.touches.length === 1 && S.current.lastTouchDist) {
-        // Went from 2 -> 1, require a fresh touch before any selection
+    
+      // Any reduction from multi-touch requires a fresh touch before selection
+      if (S.current.wasMultiTouch) {
         S.current.requiresFreshTouch = true
-      }    
-
+      }
+    
       if (e.changedTouches.length === 1 && e.touches.length === 0) {
         const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && !S.current.requiresFreshTouch
         S.current.dragOrigin = null
         S.current.lastTouchDist = null
         if (wasTap) handleTap(getPos(e.changedTouches[0]))
       }
+    
       if (e.touches.length < 2) S.current.lastTouchDist = null
     }
 
