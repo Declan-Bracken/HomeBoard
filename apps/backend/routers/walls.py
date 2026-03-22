@@ -65,7 +65,7 @@ def delete_wall_endpoint(
         db.commit()
     except ValueError as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e))
 
     
 @router.get("/{wall_id}", response_model=WallResponse)
