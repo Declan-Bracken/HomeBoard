@@ -106,8 +106,12 @@ export default function HoldCanvas({ preview, onConfirm }) {
     mode: 'select', drawPts: [], mousePos: null,
     img: null, isDragging: false, dragOrigin: null,
     lastTouchDist: null, touchMoved: false,
-    wasMultiTouch: false,
-    requiresFreshTouch: false,
+    // ── Touch identifier tracking ──
+    // activeTouchIds: all fingers currently on screen
+    activeTouchIds: new Set(),
+    // taintedTouchIds: any finger that was ever part of a multi-touch gesture
+    // A touch is tainted for its entire lifetime once a second finger joins
+    taintedTouchIds: new Set(),
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -268,9 +272,20 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
     const onTouchStart = (e) => {
       e.preventDefault()
-      if (e.touches.length >= 2) {
-        S.current.wasMultiTouch = true
+
+      // Register all new fingers
+      for (const t of e.changedTouches) {
+        S.current.activeTouchIds.add(t.identifier)
       }
+
+      // If 2+ fingers are now on screen, taint ALL currently active fingers
+      // This marks every finger in this gesture as invalid for selection
+      if (S.current.activeTouchIds.size >= 2) {
+        for (const id of S.current.activeTouchIds) {
+          S.current.taintedTouchIds.add(id)
+        }
+      }
+
       if (e.touches.length === 1) {
         const pos = getPos(e.touches[0])
         S.current.touchMoved = false
@@ -282,7 +297,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
         S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
       }
     }
-    
+
     const onTouchMove = (e) => {
       e.preventDefault()
       if (e.touches.length === 1 && S.current.dragOrigin) {
@@ -303,17 +318,32 @@ export default function HoldCanvas({ preview, onConfirm }) {
         scheduleRender()
       }
     }
-    
+
     const onTouchEnd = (e) => {
       e.preventDefault()
-      // Only clear wasMultiTouch when ALL fingers are off the screen
-      if (e.touches.length === 0) {
-        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch
-        S.current.wasMultiTouch = false
-        S.current.dragOrigin = null
-        S.current.lastTouchDist = null
-        if (wasTap) handleTap(getPos(e.changedTouches[0]))
+
+      for (const t of e.changedTouches) {
+        const isTainted = S.current.taintedTouchIds.has(t.identifier)
+        const didMove = S.current.touchMoved
+
+        // Only fire tap if this specific finger was never part of a multi-touch gesture
+        if (!isTainted && !didMove && e.touches.length === 0) {
+          handleTap(getPos(t))
+        }
+
+        // Clean up this finger from both tracking sets
+        S.current.activeTouchIds.delete(t.identifier)
+        S.current.taintedTouchIds.delete(t.identifier)
       }
+
+      if (e.touches.length === 0) {
+        // All fingers up — full reset
+        S.current.activeTouchIds.clear()
+        S.current.taintedTouchIds.clear()
+        S.current.dragOrigin = null
+        S.current.touchMoved = false
+      }
+
       if (e.touches.length < 2) S.current.lastTouchDist = null
     }
 
