@@ -107,7 +107,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
     img: null, isDragging: false, dragOrigin: null,
     lastTouchDist: null, touchMoved: false,
     wasMultiTouch: false,
-    multiTouchEndTime: 0,
+    requiresFreshTouch: false,
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -272,10 +272,12 @@ export default function HoldCanvas({ preview, onConfirm }) {
         const pos = getPos(e.touches[0])
         S.current.touchMoved = false
         S.current.wasMultiTouch = false
+        S.current.requiresFreshTouch = false
         S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
         S.current.lastTouchDist = null
       } else if (e.touches.length === 2) {
         S.current.wasMultiTouch = true
+        S.current.requiresFreshTouch = true
         S.current.dragOrigin = null
         S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
         S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
@@ -307,13 +309,13 @@ export default function HoldCanvas({ preview, onConfirm }) {
       e.preventDefault()
 
       // If we're coming down from 2+ fingers, record the time
-      if (S.current.wasMultiTouch) {
-        S.current.multiTouchEndTime = Date.now()
-      }
+      if (e.touches.length === 1 && S.current.lastTouchDist) {
+        // Went from 2 -> 1, require a fresh touch before any selection
+        S.current.requiresFreshTouch = true
+      }    
 
       if (e.changedTouches.length === 1 && e.touches.length === 0) {
-        const timeSinceMultiTouch = Date.now() - S.current.multiTouchEndTime
-        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && timeSinceMultiTouch > 350
+        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && !S.current.requiresFreshTouch
         S.current.dragOrigin = null
         S.current.lastTouchDist = null
         if (wasTap) handleTap(getPos(e.changedTouches[0]))
