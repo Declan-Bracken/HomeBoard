@@ -313,7 +313,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
       if (e.changedTouches.length === 1 && e.touches.length === 0) {
         const timeSinceMultiTouch = Date.now() - S.current.multiTouchEndTime
-        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && timeSinceMultiTouch > 200
+        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && timeSinceMultiTouch > 350
         S.current.dragOrigin = null
         S.current.lastTouchDist = null
         if (wasTap) handleTap(getPos(e.changedTouches[0]))
