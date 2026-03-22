@@ -106,6 +106,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
     mode: 'select', drawPts: [], mousePos: null,
     img: null, isDragging: false, dragOrigin: null,
     lastTouchDist: null, touchMoved: false,
+    wasMultiTouch: false,
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -269,9 +270,11 @@ export default function HoldCanvas({ preview, onConfirm }) {
       if (e.touches.length === 1) {
         const pos = getPos(e.touches[0])
         S.current.touchMoved = false
+        S.current.wasMultiTouch = false
         S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
         S.current.lastTouchDist = null
       } else if (e.touches.length === 2) {
+        S.current.wasMultiTouch = true
         S.current.dragOrigin = null
         S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
         S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
@@ -302,7 +305,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
     const onTouchEnd = (e) => {
       e.preventDefault()
       if (e.changedTouches.length === 1 && e.touches.length === 0) {
-        const wasTap = !S.current.touchMoved
+        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch
         S.current.dragOrigin = null
         S.current.lastTouchDist = null
         if (wasTap) handleTap(getPos(e.changedTouches[0]))
