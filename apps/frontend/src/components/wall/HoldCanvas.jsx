@@ -268,29 +268,32 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
     const onTouchStart = (e) => {
       e.preventDefault()
+    
       if (e.touches.length === 1) {
-        // Only a truly fresh touch if requiresFreshTouch was set and all fingers were up
+        const pos = getPos(e.touches[0])
         S.current.touchMoved = false
         S.current.wasMultiTouch = false
-        S.current.requiresFreshTouch = false  // cleared here — this is the fresh touch
-        const pos = getPos(e.touches[0])
+        S.current.tapStartPos = pos  // record where finger went down
         S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
         S.current.lastTouchDist = null
       } else if (e.touches.length === 2) {
         S.current.wasMultiTouch = true
-        S.current.requiresFreshTouch = true
+        S.current.tapStartPos = null  // invalidate any pending tap
         S.current.dragOrigin = null
         S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
         S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
       }
     }
-
+    
     const onTouchMove = (e) => {
       e.preventDefault()
       if (e.touches.length === 1 && S.current.dragOrigin) {
         const pos = getPos(e.touches[0]), d = S.current.dragOrigin
         const dx = pos.x - d.mx, dy = pos.y - d.my
-        if (Math.hypot(dx, dy) > 4) S.current.touchMoved = true
+        if (Math.hypot(dx, dy) > 4) {
+          S.current.touchMoved = true
+          S.current.tapStartPos = null  // moved too far, not a tap
+        }
         S.current.tx = { ...S.current.tx, x: d.tx + dx, y: d.ty + dy }
         scheduleRender()
       } else if (e.touches.length === 2 && S.current.lastTouchDist) {
@@ -305,20 +308,23 @@ export default function HoldCanvas({ preview, onConfirm }) {
         scheduleRender()
       }
     }
-
+    
     const onTouchEnd = (e) => {
       e.preventDefault()
     
-      // Any reduction from multi-touch requires a fresh touch before selection
-      if (S.current.wasMultiTouch) {
-        S.current.requiresFreshTouch = true
+      if (e.touches.length === 1) {
+        // Went from 2->1, invalidate tap
+        S.current.tapStartPos = null
       }
     
-      if (e.changedTouches.length === 1 && e.touches.length === 0) {
-        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && !S.current.requiresFreshTouch
+      if (e.touches.length === 0) {
+        // All fingers up — only fire tap if tapStartPos is still valid
+        if (S.current.tapStartPos && !S.current.touchMoved && !S.current.wasMultiTouch) {
+          handleTap(S.current.tapStartPos)
+        }
+        S.current.tapStartPos = null
         S.current.dragOrigin = null
         S.current.lastTouchDist = null
-        if (wasTap) handleTap(getPos(e.changedTouches[0]))
       }
     
       if (e.touches.length < 2) S.current.lastTouchDist = null
