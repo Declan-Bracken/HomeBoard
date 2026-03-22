@@ -307,7 +307,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
       e.preventDefault()
 
       // If we're coming down from 2+ fingers, record the time
-      if (e.touches.length < 2 && S.current.lastTouchDist) {
+      if (S.current.wasMultiTouch) {
         S.current.multiTouchEndTime = Date.now()
       }
 
