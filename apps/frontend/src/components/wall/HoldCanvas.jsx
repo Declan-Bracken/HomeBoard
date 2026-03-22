@@ -107,6 +107,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
     img: null, isDragging: false, dragOrigin: null,
     lastTouchDist: null, touchMoved: false,
     wasMultiTouch: false,
+    multiTouchEndTime: 0,
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -304,8 +305,15 @@ export default function HoldCanvas({ preview, onConfirm }) {
 
     const onTouchEnd = (e) => {
       e.preventDefault()
+
+      // If we're coming down from 2+ fingers, record the time
+      if (e.touches.length < 2 && S.current.lastTouchDist) {
+        S.current.multiTouchEndTime = Date.now()
+      }
+
       if (e.changedTouches.length === 1 && e.touches.length === 0) {
-        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch
+        const timeSinceMultiTouch = Date.now() - S.current.multiTouchEndTime
+        const wasTap = !S.current.touchMoved && !S.current.wasMultiTouch && timeSinceMultiTouch > 100
         S.current.dragOrigin = null
         S.current.lastTouchDist = null
         if (wasTap) handleTap(getPos(e.changedTouches[0]))
