@@ -106,12 +106,9 @@ export default function HoldCanvas({ preview, onConfirm }) {
     mode: 'select', drawPts: [], mousePos: null,
     img: null, isDragging: false, dragOrigin: null,
     lastTouchDist: null, touchMoved: false,
-    // ── Touch identifier tracking ──
-    // activeTouchIds: all fingers currently on screen
-    activeTouchIds: new Set(),
-    // taintedTouchIds: any finger that was ever part of a multi-touch gesture
-    // A touch is tainted for its entire lifetime once a second finger joins
-    taintedTouchIds: new Set(),
+    // True from the moment a 2nd finger joins until ALL fingers lift.
+    // Suppresses tap on the last finger of any pinch/multi-touch gesture.
+    wasMultiTouch: false,
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -273,28 +270,22 @@ export default function HoldCanvas({ preview, onConfirm }) {
     const onTouchStart = (e) => {
       e.preventDefault()
 
-      // Register all new fingers
-      for (const t of e.changedTouches) {
-        S.current.activeTouchIds.add(t.identifier)
-      }
-
-      // If 2+ fingers are now on screen, taint ALL currently active fingers
-      // This marks every finger in this gesture as invalid for selection
-      if (S.current.activeTouchIds.size >= 2) {
-        for (const id of S.current.activeTouchIds) {
-          S.current.taintedTouchIds.add(id)
-        }
-      }
-
-      if (e.touches.length === 1) {
-        const pos = getPos(e.touches[0])
-        S.current.touchMoved = false
-        S.current.dragOrigin = { mx: pos.x, my: pos.y, tx: S.current.tx.x, ty: S.current.tx.y }
-        S.current.lastTouchDist = null
-      } else if (e.touches.length === 2) {
+      if (e.touches.length >= 2) {
+        // Once a second finger joins, the whole gesture is tainted until all
+        // fingers lift. We never clear this mid-gesture, so ID recycling can't
+        // fool us into thinking the last finger was a clean tap.
+        S.current.wasMultiTouch = true
         S.current.dragOrigin = null
         S.current.lastTouchDist = getDist(e.touches[0], e.touches[1])
         S.current.lastTouchMid = getMid(e.touches[0], e.touches[1])
+      } else if (e.touches.length === 1) {
+        // Only reset tap tracking when starting a brand-new single-finger gesture
+        // (i.e. wasMultiTouch is false — we're not mid-pinch)
+        if (!S.current.wasMultiTouch) {
+          S.current.touchMoved = false
+          S.current.dragOrigin = { mx: getPos(e.touches[0]).x, my: getPos(e.touches[0]).y, tx: S.current.tx.x, ty: S.current.tx.y }
+        }
+        S.current.lastTouchDist = null
       }
     }
 
@@ -322,38 +313,39 @@ export default function HoldCanvas({ preview, onConfirm }) {
     const onTouchEnd = (e) => {
       e.preventDefault()
 
-      for (const t of e.changedTouches) {
-        const isTainted = S.current.taintedTouchIds.has(t.identifier)
-        const didMove = S.current.touchMoved
-
-        // Only fire tap if this specific finger was never part of a multi-touch gesture
-        if (!isTainted && !didMove && e.touches.length === 0) {
-          handleTap(getPos(t))
-        }
-
-        // Clean up this finger from both tracking sets
-        S.current.activeTouchIds.delete(t.identifier)
-        S.current.taintedTouchIds.delete(t.identifier)
-      }
-
       if (e.touches.length === 0) {
-        // All fingers up — full reset
-        S.current.activeTouchIds.clear()
-        S.current.taintedTouchIds.clear()
+        // All fingers up — this is the only moment a tap can fire
+        if (!S.current.wasMultiTouch && !S.current.touchMoved && e.changedTouches.length === 1) {
+          handleTap(getPos(e.changedTouches[0]))
+        }
+        // Full reset — wasMultiTouch cleared only here, never mid-gesture
+        S.current.wasMultiTouch = false
         S.current.dragOrigin = null
         S.current.touchMoved = false
+        S.current.lastTouchDist = null
+      } else if (e.touches.length < 2) {
+        S.current.lastTouchDist = null
       }
+    }
 
-      if (e.touches.length < 2) S.current.lastTouchDist = null
+    const onTouchCancel = (e) => {
+      // System interrupted the gesture (e.g. iOS notification banner).
+      // Treat as all-fingers-up so state doesn't get stuck.
+      S.current.wasMultiTouch = false
+      S.current.dragOrigin = null
+      S.current.touchMoved = false
+      S.current.lastTouchDist = null
     }
 
     overlay.addEventListener('touchstart', onTouchStart, { passive: false })
     overlay.addEventListener('touchmove', onTouchMove, { passive: false })
     overlay.addEventListener('touchend', onTouchEnd, { passive: false })
+    overlay.addEventListener('touchcancel', onTouchCancel)
     return () => {
       overlay.removeEventListener('touchstart', onTouchStart)
       overlay.removeEventListener('touchmove', onTouchMove)
       overlay.removeEventListener('touchend', onTouchEnd)
+      overlay.removeEventListener('touchcancel', onTouchCancel)
     }
   }, [scheduleRender, handleTap])
 
