@@ -106,9 +106,10 @@ export default function HoldCanvas({ preview, onConfirm }) {
     mode: 'select', drawPts: [], mousePos: null,
     img: null, isDragging: false, dragOrigin: null,
     lastTouchDist: null, touchMoved: false,
-    // True from the moment a 2nd finger joins until ALL fingers lift.
-    // Suppresses tap on the last finger of any pinch/multi-touch gesture.
     wasMultiTouch: false,
+    // Timestamp of the most recent touchend. Used to suppress ghost click
+    // events that mobile browsers fire after touch gestures.
+    lastTouchEndMs: 0,
   })
 
   const [uiHolds, setUiHolds] = useState([])
@@ -233,7 +234,12 @@ export default function HoldCanvas({ preview, onConfirm }) {
       if (S.current.mode === 'draw') { S.current.mousePos = toImg(pos.x, pos.y); scheduleRender() }
     }
     const onMouseUp = () => { S.current.dragOrigin = null }
-    const onClick = (e) => { if (S.current.isDragging) { S.current.isDragging = false; return }; handleTap(getPos(e)) }
+    const onClick = (e) => {
+      // Suppress ghost clicks that mobile browsers fire after touch gestures.
+      if (Date.now() - S.current.lastTouchEndMs < 500) return
+      if (S.current.isDragging) { S.current.isDragging = false; return }
+      handleTap(getPos(e))
+    }
     const onWheel = (e) => {
       e.preventDefault()
       const pos = getPos(e), { tx } = S.current
@@ -318,6 +324,10 @@ export default function HoldCanvas({ preview, onConfirm }) {
         if (!S.current.wasMultiTouch && !S.current.touchMoved && e.changedTouches.length === 1) {
           handleTap(getPos(e.changedTouches[0]))
         }
+        // Record when touch ended so the click handler can suppress ghost clicks.
+        // Mobile browsers fire a synthetic click ~300ms after touchend even when
+        // preventDefault() was called — this timestamp gates that click away.
+        S.current.lastTouchEndMs = Date.now()
         // Full reset — wasMultiTouch cleared only here, never mid-gesture
         S.current.wasMultiTouch = false
         S.current.dragOrigin = null
@@ -331,6 +341,7 @@ export default function HoldCanvas({ preview, onConfirm }) {
     const onTouchCancel = (e) => {
       // System interrupted the gesture (e.g. iOS notification banner).
       // Treat as all-fingers-up so state doesn't get stuck.
+      S.current.lastTouchEndMs = Date.now()
       S.current.wasMultiTouch = false
       S.current.dragOrigin = null
       S.current.touchMoved = false
