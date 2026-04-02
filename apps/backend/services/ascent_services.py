@@ -46,6 +46,7 @@ def get_all_ascents(wall_id: int, route_id: int, user: User, db: Session):
             "quality": a.quality,
             "suggested_grade": a.suggested_grade,
             "n_attempts": a.n_attempts,
+            "notes": a.notes,
             "username": a.users.username,
         }
         for a in ascents
