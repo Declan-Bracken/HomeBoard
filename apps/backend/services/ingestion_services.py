@@ -5,7 +5,7 @@ from ml import segmentation
 from ml.helpers import prediction_to_hold
 from services.hold_services import create_hold
 import services.wall_services as ws
-CONFIDENCE = 10
+CONFIDENCE = 70
 
 def preview_wall_image(wall_id: int, image_path: str, user: User, db: Session):
     wall = ws.get_wall(wall_id, db)
