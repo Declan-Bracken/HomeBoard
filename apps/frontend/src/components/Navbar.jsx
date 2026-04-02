@@ -35,7 +35,8 @@ const navbarStyles = `
   }
   .hb-profile-btn:hover, .hb-logout-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
   @media (max-width: 600px) {
-    .hb-profile-btn { display: none; }
+    .hb-nav-logo { display: none; }
+    .hb-nav-divider { display: none; }
   }
   @media (min-width: 701px) {
     .hb-navbar { padding: 0 40px; height: 60px; }
