@@ -385,11 +385,11 @@ const styles = `
   .view-tab:hover { color: rgba(245,240,235,0.6); border-color: rgba(255,255,255,0.14); }
   .view-tab.active { background: rgba(255,100,40,0.1); border-color: rgba(255,100,40,0.35); color: #ff6428; }
 
-  .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; }
-  .filter-input { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 44px; }
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; width: 100%; box-sizing: border-box; }
+  .filter-input { flex: 1; min-width: 0; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 12px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; min-height: 44px; box-sizing: border-box; }
   .filter-input:focus { border-color: rgba(255,100,40,0.4); }
   .filter-input::placeholder { color: rgba(245,240,235,0.2); }
-  .filter-select { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px; }
+  .filter-select { flex-shrink: 0; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; cursor: pointer; min-height: 44px; box-sizing: border-box; appearance: none; -webkit-appearance: none; }
   .filter-select:focus { border-color: rgba(255,100,40,0.4); }
   .filter-select option { background: #161412; }
 
@@ -674,7 +674,7 @@ export default function WallDetailPage() {
                 <input className="filter-input" placeholder="Search routes..." value={search} onChange={e => setSearch(e.target.value)} />
                 <select className="filter-select" value={gradeFilter} onChange={e => setGradeFilter(e.target.value)}>
                   <option value="All">All Grades</option>
-                  {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                  {GRADES.map(g => <option key={g} value={g}>{convertGrade(g, system)}</option>)}
                 </select>
                 <select className="filter-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
                   <option value="default">Default</option>

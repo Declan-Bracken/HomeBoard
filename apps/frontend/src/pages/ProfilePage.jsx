@@ -149,7 +149,6 @@ function ActivityCalendar({ ascents, memberSince }) {
 function EditProfileModal({ profile, onClose, onUsernameChanged }) {
   const [username, setUsername] = useState(profile.username)
   const [email, setEmail] = useState(profile.email ?? '')
-  const [gradeSystem, setGradeSystem] = useGradeSystem()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -267,18 +266,6 @@ function EditProfileModal({ profile, onClose, onUsernameChanged }) {
           </button>
         </div>
 
-        <div className="modal-display-prefs">
-          <div className="modal-section-label">Display</div>
-          <div className="modal-field">
-            <label>Grade System</label>
-            <select value={gradeSystem} onChange={e => setGradeSystem(e.target.value)}>
-              {Object.entries(GRADE_SYSTEMS).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         <div className="modal-danger-zone">
           <button className="modal-danger-btn" onClick={() => setShowDeleteConfirm(true)}>
             Delete Account
@@ -322,6 +309,13 @@ const styles = `
   .profile-section { display: flex; flex-direction: column; gap: 14px; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); }
   .section-divider { height: 1px; background: rgba(255,255,255,0.05); }
+
+  .grade-system-row { display: flex; align-items: center; gap: 12px; }
+  .grade-system-label { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(245,240,235,0.3); white-space: nowrap; }
+  .grade-tabs { display: flex; gap: 4px; }
+  .grade-tab { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 5px 12px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .grade-tab:hover:not(.active) { border-color: rgba(255,255,255,0.15); color: rgba(245,240,235,0.65); }
+  .grade-tab.active { background: rgba(255,100,40,0.1); border-color: rgba(255,100,40,0.4); color: #ff6428; }
 
   .cal-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
   .cal-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 2px; }
@@ -383,10 +377,6 @@ const styles = `
   .modal-submit { background: #ff6428; border: none; border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s; }
   .modal-submit:hover { background: #ff7a40; }
   .modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-  .modal-display-prefs { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
-  .modal-field select { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; width: 100%; cursor: pointer; appearance: none; -webkit-appearance: none; }
-  .modal-field select:focus { border-color: rgba(255,100,40,0.5); }
-  .modal-field select option { background: #1e1b18; color: #f5f0eb; }
   .modal-danger-zone { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
   .modal-danger-btn { background: none; border: 1px solid rgba(255,60,60,0.2); border-radius: 2px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; color: rgba(255,80,80,0.6); cursor: pointer; transition: all 0.2s; width: 100%; text-align: left; }
   .modal-danger-btn:hover { background: rgba(255,60,60,0.08); border-color: rgba(255,60,60,0.4); color: #ff5050; }
@@ -425,7 +415,7 @@ function formatDate(iso) {
 export default function ProfilePage() {
   const navigate = useNavigate()
   const [showEditModal, setShowEditModal] = useState(false)
-  const [system] = useGradeSystem()
+  const [system, setSystem] = useGradeSystem()
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
@@ -489,6 +479,17 @@ export default function ProfilePage() {
                     </span>
                     <span className="stat-pill-label">Walls Climbed</span>
                   </div>
+                </div>
+              </div>
+
+              <div className="grade-system-row">
+                <span className="grade-system-label">Grade System</span>
+                <div className="grade-tabs">
+                  {Object.entries(GRADE_SYSTEMS).map(([key, label]) => (
+                    <button key={key} className={`grade-tab${system === key ? ' active' : ''}`} onClick={() => setSystem(key)}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
