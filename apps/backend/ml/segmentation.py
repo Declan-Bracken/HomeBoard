@@ -83,6 +83,54 @@ def _nms(predictions: list, iou_threshold: float = NMS_IOU_THRESHOLD) -> list:
     return kept
 
 
+def _remove_contained(predictions: list, containment_threshold: float = 0.70) -> list:
+    """
+    Remove partial/redundant detections that are substantially contained
+    within a larger detection.
+
+    For every pair of overlapping bboxes, compute what fraction of the
+    *smaller* box's area falls inside the *larger* box.  If that fraction
+    exceeds `containment_threshold`, the smaller detection is dropped.
+
+    This catches the common case where a 1/4–2/3 partial detection sits
+    inside an already-correct full detection of the same hold.
+    """
+    # Sort largest area first so we always compare smaller against larger
+    preds = sorted(predictions, key=lambda p: p["width"] * p["height"], reverse=True)
+    removed = set()
+
+    for i in range(len(preds)):
+        if i in removed:
+            continue
+        a = preds[i]
+        ax1 = a["x"] - a["width"]  / 2
+        ay1 = a["y"] - a["height"] / 2
+        ax2 = a["x"] + a["width"]  / 2
+        ay2 = a["y"] + a["height"] / 2
+
+        for j in range(i + 1, len(preds)):
+            if j in removed:
+                continue
+            b = preds[j]
+            bx1 = b["x"] - b["width"]  / 2
+            by1 = b["y"] - b["height"] / 2
+            bx2 = b["x"] + b["width"]  / 2
+            by2 = b["y"] + b["height"] / 2
+
+            # Intersection
+            ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+            ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+            if ix2 <= ix1 or iy2 <= iy1:
+                continue  # no overlap at all
+
+            inter = (ix2 - ix1) * (iy2 - iy1)
+            area_b = b["width"] * b["height"]
+            if area_b > 0 and inter / area_b >= containment_threshold:
+                removed.add(j)
+
+    return [p for i, p in enumerate(preds) if i not in removed]
+
+
 # ─── Boundary fragment merging ─────────────────────────────────────────────────
 
 # Vertices within this many pixels of a tile boundary are considered "on" it.
@@ -279,7 +327,8 @@ def run_tiled(image_path: str, confidence: int,
                 all_predictions.append(_offset_prediction(pred, x_off, y_off))
 
     merged = _merge_boundary_fragments(all_predictions, xs, ys, tile_size, overlap)
-    return {"predictions": _nms(merged)}
+    cleaned = _remove_contained(merged)
+    return {"predictions": _nms(cleaned)}
 
 
 if __name__ == "__main__":
