@@ -5,6 +5,8 @@ import api from '../api/axios'
 import { renderCanvas, ROLE_COLORS } from '../utils/canvasRenderer'
 import SaveButtons from '../components/SaveButtons'
 import Navbar from '../components/Navbar'
+import { useGradeSystem } from '../hooks/useGradeSystem'
+import { convertGrade } from '../utils/gradeUtils'
 
 const ROLE_LABELS = { any: 'Any', start: 'Start', end: 'End', foot: 'Foot' }
 
@@ -371,6 +373,7 @@ export default function RouteDetailPage() {
   const roleCounts = {}
   if (routeHolds) for (const rh of routeHolds) roleCounts[rh.role] = (roleCounts[rh.role] ?? 0) + 1
 
+  const [system] = useGradeSystem()
   const isLoading = routeLoading || holdsLoading || routeHoldsLoading
   const gradeCol = gradeColor(route?.grade)
   const canvasReady = imageUrl && imageDimensions && allHolds
@@ -401,7 +404,7 @@ export default function RouteDetailPage() {
               <div className="rd-canvas-col">
                 <div className="rd-route-header">
                   <h1 className="rd-title">{route?.name}</h1>
-                  <span className="rd-grade" style={{ color: gradeCol }}> · {route?.grade}</span>
+                  <span className="rd-grade" style={{ color: gradeCol }}> · {convertGrade(route?.grade, system)}</span>
                 </div>
                 <div className="rd-legend">
                   {Object.entries(ROLE_COLORS).map(([role, colors]) =>
@@ -425,7 +428,7 @@ export default function RouteDetailPage() {
                 <div className="rd-stat-strip">
                   <div className="rd-stat-strip-item">
                     <span className="strip-label">Grade</span>
-                    <span className="strip-value" style={{ color: gradeCol }}>{route?.grade}</span>
+                    <span className="strip-value" style={{ color: gradeCol }}>{convertGrade(route?.grade, system)}</span>
                   </div>
                   <div className="rd-stat-strip-item">
                     <span className="strip-label">Sends</span>
@@ -434,7 +437,7 @@ export default function RouteDetailPage() {
                   {route?.mode_suggested_grade && route.mode_suggested_grade !== route.grade && (
                     <div className="rd-stat-strip-item">
                       <span className="strip-label">Consensus</span>
-                      <span className="strip-value" style={{ color: gradeColor(route.mode_suggested_grade) }}>{route.mode_suggested_grade}</span>
+                      <span className="strip-value" style={{ color: gradeColor(route.mode_suggested_grade) }}>{convertGrade(route.mode_suggested_grade, system)}</span>
                     </div>
                   )}
                   <div className="rd-stat-strip-item">
@@ -451,10 +454,10 @@ export default function RouteDetailPage() {
                   <div className="stat-divider" />
                   <div className="stat-row"><span className="stat-label">Date set</span><span className="stat-value">{route?.created_at ? formatDate(route.created_at) : '—'}</span></div>
                   <div className="stat-divider" />
-                  <div className="stat-row"><span className="stat-label">Grade</span><span className="stat-value grade" style={{ color: gradeCol }}>{route?.grade}</span></div>
+                  <div className="stat-row"><span className="stat-label">Grade</span><span className="stat-value grade" style={{ color: gradeCol }}>{convertGrade(route?.grade, system)}</span></div>
                   {route?.mode_suggested_grade && route.mode_suggested_grade !== route.grade && (<>
                     <div className="stat-divider" />
-                    <div className="stat-row"><span className="stat-label">Consensus</span><span className="stat-value grade" style={{ color: gradeColor(route.mode_suggested_grade) }}>{route.mode_suggested_grade}</span></div>
+                    <div className="stat-row"><span className="stat-label">Consensus</span><span className="stat-value grade" style={{ color: gradeColor(route.mode_suggested_grade) }}>{convertGrade(route.mode_suggested_grade, system)}</span></div>
                   </>)}
                   <div className="stat-divider" />
                   <div className="stat-row"><span className="stat-label">Sends</span><span className="stat-value grade" style={{ color: '#ff6428' }}>{route?.ascent_count ?? 0}</span></div>
@@ -496,7 +499,7 @@ export default function RouteDetailPage() {
                           </div>
                           {a.notes && <div className="ascent-notes">{a.notes}</div>}
                         </div>
-                        {a.suggested_grade && <div className="ascent-grade-pill" style={{ color: gradeColor(a.suggested_grade) }}>{a.suggested_grade}</div>}
+                        {a.suggested_grade && <div className="ascent-grade-pill" style={{ color: gradeColor(a.suggested_grade) }}>{convertGrade(a.suggested_grade, system)}</div>}
                       </div>
                     ))}
                   </div>

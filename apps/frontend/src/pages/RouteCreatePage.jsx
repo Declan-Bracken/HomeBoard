@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
 import { renderCanvas, ROLE_COLORS } from '../utils/canvasRenderer'
 import Navbar from '../components/Navbar'
+import { useGradeSystem } from '../hooks/useGradeSystem'
+import { convertGrade } from '../utils/gradeUtils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLES = [null, 'any', 'foot', 'start', 'end']
@@ -336,6 +338,7 @@ const styles = `
 export default function RouteCreatePage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [system] = useGradeSystem()
 
   const [name, setName] = useState('')
   const [grade, setGrade] = useState('Unknown')
@@ -480,7 +483,7 @@ export default function RouteCreatePage() {
                   <div className="sidebar-field">
                     <label>Grade</label>
                     <select value={grade} onChange={e => setGrade(e.target.value)}>
-                      {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                      {GRADES.map(g => <option key={g} value={g}>{convertGrade(g, system)}</option>)}
                     </select>
                   </div>
                 </div>

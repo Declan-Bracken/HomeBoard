@@ -5,6 +5,8 @@ import api from '../api/axios'
 import { useRouteRelations } from '../hooks/useRouteRelations'
 import SaveButtons from '../components/SaveButtons'
 import Navbar from '../components/Navbar'
+import { useGradeSystem } from '../hooks/useGradeSystem'
+import { convertGrade } from '../utils/gradeUtils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getUsername() {
@@ -506,6 +508,7 @@ export default function WallDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const currentUsername = getUsername()
+  const [system] = useGradeSystem()
 
   const [search, setSearch] = useState('')
   const [gradeFilter, setGradeFilter] = useState('All')
@@ -715,7 +718,7 @@ export default function WallDetailPage() {
                         onClick={() => navigate(`/walls/${id}/routes/${route.id}`)}
                       >
                         {isSent && <div className="sent-check">✓</div>}
-                        <div className="grade-badge" style={{ color }}>{route.grade}</div>
+                        <div className="grade-badge" style={{ color }}>{convertGrade(route.grade, system)}</div>
                         <div className="route-card-body">
                           <div className="route-card-name">{route.name}</div>
                           <div className="route-card-meta">

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient as useQC } from '@tanstack/react-query'
 import api from '../api/axios'
 import Navbar from '../components/Navbar'
+import { useGradeSystem } from '../hooks/useGradeSystem'
+import { convertGrade, GRADE_SYSTEMS } from '../utils/gradeUtils'
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
 const GRADE_ORDER = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
@@ -26,6 +28,7 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 function ActivityCalendar({ ascents, memberSince }) {
+  const [system] = useGradeSystem()
   const today = new Date(); today.setHours(0,0,0,0)
   const joinDate = new Date(memberSince); joinDate.setHours(0,0,0,0)
   const [viewYear, setViewYear] = useState(today.getFullYear())
@@ -119,7 +122,7 @@ function ActivityCalendar({ ascents, memberSince }) {
                     ? <div style={{ color: 'rgba(245,240,235,0.3)', fontSize: 11 }}>No sends</div>
                     : entries.map((e, idx) => (
                       <div key={idx} className="tooltip-entry">
-                        <span style={{ color: gradeColor(e.grade) }}>{e.grade}</span>
+                        <span style={{ color: gradeColor(e.grade) }}>{convertGrade(e.grade, system)}</span>
                         {' '}{e.route_name}
                         <span className="tooltip-wall"> · {e.wall_name}</span>
                       </div>
@@ -134,7 +137,7 @@ function ActivityCalendar({ ascents, memberSince }) {
       <div className="calendar-legend">
         <span className="legend-label">Less</span>
         {['V0','V3','V6','V9','V12'].map(g => (
-          <div key={g} className="legend-cell" style={{ background: gradeColor(g) + 'cc' }} title={g} />
+          <div key={g} className="legend-cell" style={{ background: gradeColor(g) + 'cc' }} title={convertGrade(g, system)} />
         ))}
         <span className="legend-label">More</span>
       </div>
@@ -146,6 +149,7 @@ function ActivityCalendar({ ascents, memberSince }) {
 function EditProfileModal({ profile, onClose, onUsernameChanged }) {
   const [username, setUsername] = useState(profile.username)
   const [email, setEmail] = useState(profile.email ?? '')
+  const [gradeSystem, setGradeSystem] = useGradeSystem()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -263,6 +267,18 @@ function EditProfileModal({ profile, onClose, onUsernameChanged }) {
           </button>
         </div>
 
+        <div className="modal-display-prefs">
+          <div className="modal-section-label">Display</div>
+          <div className="modal-field">
+            <label>Grade System</label>
+            <select value={gradeSystem} onChange={e => setGradeSystem(e.target.value)}>
+              {Object.entries(GRADE_SYSTEMS).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div className="modal-danger-zone">
           <button className="modal-danger-btn" onClick={() => setShowDeleteConfirm(true)}>
             Delete Account
@@ -367,6 +383,10 @@ const styles = `
   .modal-submit { background: #ff6428; border: none; border-radius: 2px; padding: 10px 24px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s; }
   .modal-submit:hover { background: #ff7a40; }
   .modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .modal-display-prefs { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
+  .modal-field select { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 10px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 300; color: #f5f0eb; outline: none; transition: border-color 0.2s; width: 100%; cursor: pointer; appearance: none; -webkit-appearance: none; }
+  .modal-field select:focus { border-color: rgba(255,100,40,0.5); }
+  .modal-field select option { background: #1e1b18; color: #f5f0eb; }
   .modal-danger-zone { margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
   .modal-danger-btn { background: none; border: 1px solid rgba(255,60,60,0.2); border-radius: 2px; padding: 10px 14px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; color: rgba(255,80,80,0.6); cursor: pointer; transition: all 0.2s; width: 100%; text-align: left; }
   .modal-danger-btn:hover { background: rgba(255,60,60,0.08); border-color: rgba(255,60,60,0.4); color: #ff5050; }
@@ -405,6 +425,7 @@ function formatDate(iso) {
 export default function ProfilePage() {
   const navigate = useNavigate()
   const [showEditModal, setShowEditModal] = useState(false)
+  const [system] = useGradeSystem()
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
@@ -452,13 +473,13 @@ export default function ProfilePage() {
                   </div>
                   <div className="stat-pill">
                     <span className="stat-pill-value" style={{ color: profile.highest_flash_grade ? gradeColor(profile.highest_flash_grade) : 'rgba(245,240,235,0.2)' }}>
-                      {profile.highest_flash_grade ?? '—'}
+                      {profile.highest_flash_grade ? convertGrade(profile.highest_flash_grade, system) : '—'}
                     </span>
                     <span className="stat-pill-label">Highest Flash</span>
                   </div>
                   <div className="stat-pill">
                     <span className="stat-pill-value" style={{ color: profile.highest_redpoint_grade ? gradeColor(profile.highest_redpoint_grade) : 'rgba(245,240,235,0.2)' }}>
-                      {profile.highest_redpoint_grade ?? '—'}
+                      {profile.highest_redpoint_grade ? convertGrade(profile.highest_redpoint_grade, system) : '—'}
                     </span>
                     <span className="stat-pill-label">Highest Send</span>
                   </div>
@@ -505,7 +526,7 @@ export default function ProfilePage() {
                           {a.notes && <div className="ascent-notes">{a.notes}</div>}
                         </div>
                         <span style={{ color: 'rgba(245,240,235,0.4)' }}>{a.wall_name}</span>
-                        <span><span className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</span></span>
+                        <span><span className="grade-chip" style={{ color: gradeColor(a.grade) }}>{convertGrade(a.grade, system)}</span></span>
                         <span>
                           {a.quality
                             ? <span className="quality-stars">{'★'.repeat(a.quality)}{'☆'.repeat(5 - a.quality)}</span>
