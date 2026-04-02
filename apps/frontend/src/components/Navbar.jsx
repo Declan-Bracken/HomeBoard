@@ -4,12 +4,12 @@ const navbarStyles = `
   .hb-navbar {
     position: sticky; top: 0; z-index: 10;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; height: 56px;
+    padding: 0 20px; height: 56px; width: 100%; box-sizing: border-box; overflow: hidden;
     background: rgba(15, 14, 13, 0.85); backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255,255,255,0.05);
   }
-  .hb-nav-left { display: flex; align-items: center; gap: 12px; }
-  .hb-nav-right { display: flex; align-items: center; gap: 10px; }
+  .hb-nav-left { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .hb-nav-right { display: flex; align-items: center; gap: 8px; flex-shrink: 1; min-width: 0; overflow: hidden; }
   .hb-nav-back {
     background: none; border: none;
     font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300;
@@ -17,7 +17,7 @@ const navbarStyles = `
     padding: 0; display: flex; align-items: center; gap: 6px; min-height: 44px;
   }
   .hb-nav-back:hover { color: #ff6428; }
-  .hb-nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
+  .hb-nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
   .hb-nav-logo {
     font-family: 'Bebas Neue', sans-serif; font-size: 22px;
     letter-spacing: 0.08em; color: #f5f0eb;
@@ -28,9 +28,13 @@ const navbarStyles = `
     padding: 6px 12px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
     letter-spacing: 0.06em; text-transform: uppercase; color: rgba(245,240,235,0.5);
     cursor: pointer; transition: all 0.2s; min-height: 36px; white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .hb-profile-btn {
+    max-width: 120px; overflow: hidden; text-overflow: ellipsis;
   }
   .hb-profile-btn:hover, .hb-logout-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
-  @media (max-width: 480px) {
+  @media (max-width: 600px) {
     .hb-profile-btn { display: none; }
   }
   @media (min-width: 701px) {
