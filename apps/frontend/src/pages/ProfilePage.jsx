@@ -91,6 +91,12 @@ function ActivityCalendar({ ascents, memberSince }) {
       <div className="cal-grid">
         {calDays.map((day, i) => {
           if (!day) return <div key={`e-${i}`} className="cal-cell cal-cell--empty" />
+          const col = i % 7
+          const tooltipStyle = col <= 1
+            ? { left: 0 }
+            : col >= 5
+              ? { right: 0 }
+              : { left: '50%', transform: 'translateX(-50%)' }
           const dateStr = fmtDate(day)
           const entries = dateMap[dateStr] ?? []
           const isFuture = day > today
@@ -107,7 +113,7 @@ function ActivityCalendar({ ascents, memberSince }) {
                 color: isFuture ? 'rgba(245,240,235,0.1)' : entries.length > 0 ? 'rgba(15,14,13,0.85)' : 'rgba(245,240,235,0.25)'
               }}>{day.getDate()}</span>
               {isHovered && !isFuture && (
-                <div className="cell-tooltip">
+                <div className="cell-tooltip" style={tooltipStyle}>
                   <div className="tooltip-date">{dateStr}</div>
                   {entries.length === 0
                     ? <div style={{ color: 'rgba(245,240,235,0.3)', fontSize: 11 }}>No sends</div>
@@ -316,7 +322,7 @@ const styles = `
   .cal-cell--today { box-shadow: 0 0 0 1px rgba(255,100,40,0.6); }
   .cal-cell:not(.cal-cell--empty):not(.cal-cell--future):hover { transform: scale(1.08); z-index: 5; }
   .cal-day-num { font-size: 11px; font-weight: 400; pointer-events: none; line-height: 1; user-select: none; }
-  .cell-tooltip { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: #1e1b18; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 220px; z-index: 20; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .cell-tooltip { position: absolute; bottom: 16px; background: #1e1b18; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 220px; z-index: 20; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .tooltip-date { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; color: rgba(245,240,235,0.4); margin-bottom: 4px; text-transform: uppercase; }
   .tooltip-entry { font-size: 12px; font-weight: 300; color: #f5f0eb; line-height: 1.6; }
   .tooltip-wall { color: rgba(245,240,235,0.35); }
