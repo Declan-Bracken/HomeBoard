@@ -85,9 +85,8 @@ def _nms(predictions: list, iou_threshold: float = NMS_IOU_THRESHOLD) -> list:
 
 # ─── Boundary fragment merging ─────────────────────────────────────────────────
 
-def _bbox_overlap_1d(a_min, a_max, b_min, b_max) -> float:
-    """Overlap length of two 1-D intervals."""
-    return max(0.0, min(a_max, b_max) - max(a_min, b_min))
+# Vertices within this many pixels of a tile boundary are considered "on" it.
+BOUNDARY_EPSILON = 4   # px
 
 
 def _merge_two(a: dict, b: dict) -> dict:
@@ -112,7 +111,6 @@ def _merge_two(a: dict, b: dict) -> dict:
     merged["height"] = my2 - my1
     merged["confidence"] = max(a["confidence"], b["confidence"])
 
-    # Merge polygon points via convex hull if both have them
     pts_a = a.get("points", [])
     pts_b = b.get("points", [])
     if pts_a and pts_b:
@@ -128,83 +126,92 @@ def _merge_two(a: dict, b: dict) -> dict:
     return merged
 
 
+def _boundary_edge_span(pred: dict, boundary: float, cut_axis: str) -> tuple | None:
+    """
+    Returns (min, max) along the *perpendicular* axis for vertices whose
+    coordinate on `cut_axis` is within BOUNDARY_EPSILON of `boundary`.
+
+    For a vertical boundary (cut_axis='x'), the span is in y.
+    For a horizontal boundary (cut_axis='y'), the span is in x.
+    Returns None if the prediction has no polygon or no vertices on the boundary.
+    """
+    points = pred.get("points", [])
+    if not points:
+        return None
+
+    perp = "y" if cut_axis == "x" else "x"
+    on_edge = [p[perp] for p in points if abs(p[cut_axis] - boundary) <= BOUNDARY_EPSILON]
+
+    if not on_edge:
+        return None
+
+    return (min(on_edge), max(on_edge))
+
+
+def _span_overlap_frac(span_a: tuple, span_b: tuple) -> float:
+    """Fraction of the *smaller* span that is covered by the overlap."""
+    ov = max(0.0, min(span_a[1], span_b[1]) - max(span_a[0], span_b[0]))
+    smaller = min(span_a[1] - span_a[0], span_b[1] - span_b[0])
+    return ov / smaller if smaller > 0 else 0.0
+
+
 def _merge_boundary_fragments(
     predictions: list,
     tile_xs: list,
     tile_ys: list,
     tile_size: int,
     overlap: float,
+    min_edge_overlap: float = 0.95,
 ) -> list:
     """
     For every interior tile boundary, find pairs of predictions that are
-    fragments of the same hold split by the boundary, merge them, and return
-    the cleaned prediction list.
+    genuine boundary fragments — identified by having polygon vertices
+    lying directly on the cut line — and merge them only when those
+    boundary edges overlap by `min_edge_overlap` (default 95 %).
 
-    A prediction is a candidate fragment near boundary B if its bbox edge
-    (the side facing B) is within `snap_px` pixels of B.  Two candidates on
-    opposite sides of B are paired when their bboxes overlap along the axis
-    parallel to B by at least `min_overlap_frac` of the smaller bbox dimension.
+    This is intentionally conservative: only merges when the two cut
+    edges nearly perfectly coincide, avoiding false merges between
+    unrelated nearby holds.
     """
-    snap_px = tile_size * overlap          # e.g. 256 px for 1280 * 0.2
-    min_overlap_frac = 0.3                 # 30 % along the parallel axis
-
     preds = list(predictions)
-    merged_indices: set = set()
 
-    # Vertical boundaries (between tiles at x = x_off + tile_size for each
-    # tile except the last column).  tile_xs gives the left edge of each tile
-    # column; the boundary between column i and i+1 is tile_xs[i] + tile_size.
     v_boundaries = [x + tile_size for x in tile_xs[:-1]]
     h_boundaries = [y + tile_size for y in tile_ys[:-1]]
 
-    def _try_merge_axis(boundaries, is_vertical):
-        nonlocal preds, merged_indices
-        new_preds = []
+    def _try_merge_axis(boundaries, cut_axis):
+        nonlocal preds
         used = set()
+        new_preds = []
 
         for bnd in boundaries:
-            # Collect left/top candidates (bbox right/bottom edge near bnd)
-            # and right/bottom candidates (bbox left/top edge near bnd)
-            left_cands = []   # predictions whose far edge ≈ bnd
-            right_cands = []  # predictions whose near edge ≈ bnd
+            # Split candidates by which side of the boundary their centroid is on
+            left_cands = []   # centroid < bnd  (left / above)
+            right_cands = []  # centroid >= bnd (right / below)
 
             for i, p in enumerate(preds):
                 if i in used:
                     continue
-                if is_vertical:
-                    far  = p["x"] + p["width"]  / 2   # right edge
-                    near = p["x"] - p["width"]  / 2   # left edge
+                span = _boundary_edge_span(p, bnd, cut_axis)
+                if span is None:
+                    continue
+                centroid = p[cut_axis]
+                if centroid < bnd:
+                    left_cands.append((i, span))
                 else:
-                    far  = p["y"] + p["height"] / 2   # bottom edge
-                    near = p["y"] - p["height"] / 2   # top edge
+                    right_cands.append((i, span))
 
-                if abs(far - bnd) <= snap_px:
-                    left_cands.append(i)
-                elif abs(near - bnd) <= snap_px:
-                    right_cands.append(i)
-
-            # Try to pair each left candidate with the best right candidate
-            for li in left_cands:
+            # Pair each left fragment with the best-matching right fragment
+            for li, l_span in left_cands:
                 if li in used:
                     continue
-                lp = preds[li]
-                best_ri, best_overlap = None, 0.0
+                best_ri, best_frac = None, 0.0
 
-                for ri in right_cands:
+                for ri, r_span in right_cands:
                     if ri in used:
                         continue
-                    rp = preds[ri]
-                    if is_vertical:
-                        lmin, lmax = lp["y"] - lp["height"] / 2, lp["y"] + lp["height"] / 2
-                        rmin, rmax = rp["y"] - rp["height"] / 2, rp["y"] + rp["height"] / 2
-                    else:
-                        lmin, lmax = lp["x"] - lp["width"] / 2, lp["x"] + lp["width"] / 2
-                        rmin, rmax = rp["x"] - rp["width"] / 2, rp["x"] + rp["width"] / 2
-
-                    ov = _bbox_overlap_1d(lmin, lmax, rmin, rmax)
-                    min_dim = min(lmax - lmin, rmax - rmin)
-                    if min_dim > 0 and ov / min_dim >= min_overlap_frac and ov > best_overlap:
-                        best_overlap = ov
+                    frac = _span_overlap_frac(l_span, r_span)
+                    if frac >= min_edge_overlap and frac > best_frac:
+                        best_frac = frac
                         best_ri = ri
 
                 if best_ri is not None:
@@ -212,11 +219,10 @@ def _merge_boundary_fragments(
                     used.add(best_ri)
                     new_preds.append(_merge_two(preds[li], preds[best_ri]))
 
-        # Rebuild preds: keep unmerged, append merged
         preds = [p for i, p in enumerate(preds) if i not in used] + new_preds
 
-    _try_merge_axis(v_boundaries, is_vertical=True)
-    _try_merge_axis(h_boundaries, is_vertical=False)
+    _try_merge_axis(v_boundaries, cut_axis="x")
+    _try_merge_axis(h_boundaries, cut_axis="y")
 
     return preds
 
