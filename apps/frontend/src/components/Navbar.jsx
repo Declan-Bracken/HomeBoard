@@ -35,8 +35,8 @@ const navbarStyles = `
   }
   .hb-profile-btn:hover, .hb-logout-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
   @media (max-width: 600px) {
-    .hb-nav-logo { display: none; }
-    .hb-nav-divider { display: none; }
+    .hb-nav-logo--with-back { display: none; }
+    .hb-nav-divider--with-back { display: none; }
   }
   @media (min-width: 701px) {
     .hb-navbar { padding: 0 40px; height: 60px; }
@@ -71,17 +71,19 @@ export default function Navbar({ backTo, children }) {
           {backTo && (
             <>
               <button className="hb-nav-back" onClick={() => navigate(backTo)}>← Back</button>
-              <div className="hb-nav-divider" />
+              <div className={`hb-nav-divider${backTo ? ' hb-nav-divider--with-back' : ''}`} />
             </>
           )}
-          <div className="hb-nav-logo">Home<span>Board</span></div>
+          <div className={`hb-nav-logo${backTo ? ' hb-nav-logo--with-back' : ''}`}>Home<span>Board</span></div>
         </div>
         <div className="hb-nav-right">
           {children}
           {!isProfilePage && (
             <button className="hb-profile-btn" onClick={() => navigate('/profile')}>{username}</button>
           )}
-          <button className="hb-logout-btn" onClick={handleLogout}>Logout</button>
+          {isProfilePage && (
+            <button className="hb-logout-btn" onClick={handleLogout}>Logout</button>
+          )}
         </div>
       </nav>
     </>

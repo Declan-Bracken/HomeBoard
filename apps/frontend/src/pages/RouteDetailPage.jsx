@@ -220,12 +220,13 @@ const styles = `
   .hold-role-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid; flex-shrink: 0; }
   .hold-role-count { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.04em; }
   .ascent-log { display: flex; flex-direction: column; gap: 8px; }
-  .ascent-entry { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 2px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
+  .ascent-entry { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 2px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
   .ascent-avatar { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,100,40,0.15); border: 1px solid rgba(255,100,40,0.2); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #ff6428; flex-shrink: 0; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.05em; }
   .ascent-info { flex: 1; min-width: 0; }
   .ascent-user { font-size: 12px; font-weight: 500; color: #f5f0eb; }
   .ascent-meta { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.3); margin-top: 1px; }
-  .ascent-grade-pill { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+  .ascent-grade-pill { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 2px; flex-shrink: 0; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); margin-top: 1px; }
+  .ascent-notes { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.45); margin-top: 5px; font-style: italic; }
   .ascent-empty { font-size: 12px; font-weight: 300; color: rgba(245,240,235,0.2); text-align: center; padding: 16px 0; }
   .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 80px; grid-column: 1/-1; }
   .loading-spinner { width: 32px; height: 32px; border: 2px solid rgba(255,255,255,0.08); border-top-color: #ff6428; border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -493,6 +494,7 @@ export default function RouteDetailPage() {
                             {a.n_attempts && ` · ${a.n_attempts} attempt${a.n_attempts !== 1 ? 's' : ''}`}
                             {a.quality && ` · ${'★'.repeat(a.quality)}${'☆'.repeat(5 - a.quality)}`}
                           </div>
+                          {a.notes && <div className="ascent-notes">{a.notes}</div>}
                         </div>
                         {a.suggested_grade && <div className="ascent-grade-pill" style={{ color: gradeColor(a.suggested_grade) }}>{a.suggested_grade}</div>}
                       </div>
