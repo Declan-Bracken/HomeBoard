@@ -15,7 +15,7 @@ def preview_wall_image(wall_id: int, image_path: str, user: User, db: Session):
     if existing_holds > 0:
         raise ValueError("Holds already exist for this wall")
 
-    predictions = segmentation.run(image_path, CONFIDENCE)
+    predictions = segmentation.run_tiled(image_path, CONFIDENCE)
     if not predictions:
         raise ValueError("No holds detected")
 
@@ -35,7 +35,7 @@ def ingest_wall_image(wall_id: int, image_path: UploadFile, user: User, db: Sess
     if existing_holds > 0:
         raise ValueError("Holds already exist for this wall")
     
-    predictions = segmentation.run(image_path, CONFIDENCE)
+    predictions = segmentation.run_tiled(image_path, CONFIDENCE)
     # annotated_image_path = segmentation.annotate(wall_id, image_path, predictions)
 
     if not predictions:
