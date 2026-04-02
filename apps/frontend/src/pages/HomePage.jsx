@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import { useNavigate } from 'react-router-dom'
+import Navbar from '../components/Navbar'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
@@ -24,25 +25,6 @@ const styles = `
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
     pointer-events: none; z-index: 0;
   }
-
-  /* NAV */
-  .dash-nav {
-    position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; height: 56px;
-    background: rgba(15, 14, 13, 0.85); backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #f5f0eb; }
-  .nav-logo span { color: #ff6428; }
-  .nav-right { display: flex; align-items: center; gap: 10px; }
-  .profile-btn, .logout-btn {
-    background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px;
-    padding: 6px 12px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
-    letter-spacing: 0.06em; text-transform: uppercase; color: rgba(245,240,235,0.5);
-    cursor: pointer; transition: all 0.2s; min-height: 36px; white-space: nowrap;
-  }
-  .profile-btn:hover, .logout-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
 
   /* MAIN */
   .dash-main { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 32px 20px 80px; }
@@ -246,17 +228,12 @@ const styles = `
     .dash-header { flex-direction: column; align-items: flex-start; gap: 12px; }
     .new-wall-btn { width: 100%; justify-content: center; }
     .wall-grid, .skeleton-grid { grid-template-columns: 1fr; }
-    .profile-btn { display: none; }
-    .nav-right { gap: 8px; }
   }
   @media (min-width: 481px) and (max-width: 700px) {
     .wall-grid, .skeleton-grid { grid-template-columns: 1fr 1fr; }
   }
   @media (min-width: 701px) {
     .dash-main { padding: 48px 40px 80px; }
-    .dash-nav { padding: 0 40px; height: 60px; }
-    .nav-logo { font-size: 24px; }
-    .nav-right { gap: 20px; }
   }
 `
 
@@ -273,13 +250,6 @@ function SkeletonCard() {
 
 function formatDate(isoString) {
   return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function getUsername() {
-  try {
-    const token = localStorage.getItem('token')
-    return JSON.parse(atob(token.split('.')[1])).sub
-  } catch { return null }
 }
 
 // ─── New Wall Modal ───────────────────────────────────────────────────────────
@@ -487,7 +457,6 @@ function SearchResults({ query }) {
 
 // ─── Home page ────────────────────────────────────────────────────────────────
 function HomePage() {
-  const username = getUsername()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showModal, setShowModal] = useState(false)
@@ -502,11 +471,6 @@ function HomePage() {
     queryKey: ['publicWalls'],
     queryFn: async () => (await api.get('/walls/public')).data,
   })
-
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    window.location.href = '/auth'
-  }
 
   const handleWallCreated = (newWall) => {
     queryClient.invalidateQueries({ queryKey: ['walls'] })
@@ -532,13 +496,7 @@ function HomePage() {
           <NewWallModal onClose={() => setShowModal(false)} onCreated={handleWallCreated} />
         )}
 
-        <nav className="dash-nav">
-          <div className="nav-logo">Home<span>Board</span></div>
-          <div className="nav-right">
-            <button className="profile-btn" onClick={() => navigate('/profile')}>{username}</button>
-            <button className="logout-btn" onClick={handleLogout}>Logout</button>
-          </div>
-        </nav>
+        <Navbar />
 
         <main className="dash-main">
           <div className="dash-header">

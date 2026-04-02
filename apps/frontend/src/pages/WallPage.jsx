@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import HoldCanvas from '../components/wall/HoldCanvas'
 import { useQuery } from '@tanstack/react-query'
+import Navbar from '../components/Navbar'
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
@@ -21,33 +22,6 @@ const styles = `
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
     pointer-events: none; z-index: 0;
   }
-
-  /* NAV */
-  .wall-nav {
-    position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; height: 56px;
-    background: rgba(15, 14, 13, 0.85); backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
-
-  .nav-left { display: flex; align-items: center; gap: 12px; }
-
-  .nav-back {
-    background: none; border: none;
-    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300;
-    color: rgba(245, 240, 235, 0.4); cursor: pointer; transition: color 0.2s;
-    padding: 0; display: flex; align-items: center; gap: 6px; min-height: 44px;
-  }
-  .nav-back:hover { color: #ff6428; }
-
-  .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-
-  .nav-logo {
-    font-family: 'Bebas Neue', sans-serif; font-size: 22px;
-    letter-spacing: 0.08em; color: #f5f0eb;
-  }
-  .nav-logo span { color: #ff6428; }
 
   /* MAIN */
   .wall-main {
@@ -143,8 +117,6 @@ const styles = `
 
   /* ── Responsive ── */
   @media (min-width: 701px) {
-    .wall-nav { padding: 0 40px; height: 60px; }
-    .nav-logo { font-size: 24px; }
     .wall-main { padding: 40px 40px 60px; }
     .wall-title { font-size: 48px; }
   }
@@ -209,13 +181,7 @@ function WallPage() {
     <>
       <style>{styles}</style>
       <div className="wall-root">
-        <nav className="wall-nav">
-          <div className="nav-left">
-            <button className="nav-back" onClick={() => navigate('/home')}>← Back</button>
-            <div className="nav-divider" />
-            <div className="nav-logo">Home<span>Board</span></div>
-          </div>
-        </nav>
+        <Navbar backTo="/home" />
 
         <main className="wall-main">
           <div className="wall-header">

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import { useRouteRelations } from '../hooks/useRouteRelations'
 import SaveButtons from '../components/SaveButtons'
+import Navbar from '../components/Navbar'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getUsername() {
@@ -350,13 +351,6 @@ const styles = `
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
-  .detail-nav { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 56px; background: rgba(15,14,13,0.9); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .nav-left { display: flex; align-items: center; gap: 12px; }
-  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px; min-width: 44px; }
-  .nav-back:hover { color: #ff6428; }
-  .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #f5f0eb; }
-  .nav-logo span { color: #ff6428; }
   .gear-btn { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; font-size: 16px; }
   .gear-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
 
@@ -499,7 +493,6 @@ const styles = `
 
   @media (min-width: 600px) {
     .detail-main { padding: 28px 32px 80px; }
-    .detail-nav { padding: 0 32px; }
     .detail-title { font-size: 44px; }
     .modal-backdrop { align-items: center; padding: 16px; }
     .settings-modal { border-radius: 2px; max-height: 80vh; }
@@ -614,16 +607,11 @@ export default function WallDetailPage() {
             onClose={() => setShowFullscreen(false)} />
         )}
 
-        <nav className="detail-nav">
-          <div className="nav-left">
-            <button className="nav-back" onClick={() => navigate('/home')}>← Back</button>
-            <div className="nav-divider" />
-            <div className="nav-logo">Home<span>Board</span></div>
-          </div>
+        <Navbar backTo="/home">
           {isOwner && (
             <button className="gear-btn" onClick={() => setShowSettings(true)} title="Wall settings">⚙</button>
           )}
-        </nav>
+        </Navbar>
 
         <main className="detail-main">
           {wallLoading ? (

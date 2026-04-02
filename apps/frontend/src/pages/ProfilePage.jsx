@@ -2,6 +2,7 @@ import { useState, useMemo, useQueryClient } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient as useQC } from '@tanstack/react-query'
 import api from '../api/axios'
+import Navbar from '../components/Navbar'
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
 const GRADE_ORDER = ['Unknown','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V15','V16','V17']
@@ -280,14 +281,6 @@ const styles = `
       url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
-  .profile-nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; height: 56px; background: rgba(15,14,13,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .nav-left { display: flex; align-items: center; gap: 12px; }
-  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; min-height: 44px; }
-  .nav-back:hover { color: #ff6428; }
-  .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; }
-  .nav-logo span { color: #ff6428; }
-
   .edit-profile-btn { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; padding: 7px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 400; color: rgba(245,240,235,0.4); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
   .edit-profile-btn:hover { border-color: rgba(255,100,40,0.4); color: #ff6428; }
 
@@ -386,8 +379,6 @@ const styles = `
     @keyframes sheetUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   }
   @media (min-width: 701px) {
-    .profile-nav { padding: 0 40px; height: 60px; }
-    .nav-logo { font-size: 24px; }
     .profile-main { padding: 40px 40px 80px; gap: 44px; }
     .profile-username { font-size: 52px; }
     .stat-pill { padding: 14px 20px; min-width: 110px; }
@@ -416,14 +407,9 @@ export default function ProfilePage() {
     <>
       <style>{styles}</style>
       <div className="profile-root">
-        <nav className="profile-nav">
-          <div className="nav-left">
-            <button className="nav-back" onClick={() => navigate('/home')}>← Back</button>
-            <div className="nav-divider" />
-            <div className="nav-logo">Home<span>Board</span></div>
-          </div>
+        <Navbar backTo="/home">
           <button className="edit-profile-btn" onClick={() => setShowEditModal(true)}>Edit Profile</button>
-        </nav>
+        </Navbar>
 
         {showEditModal && profile && (
           <EditProfileModal

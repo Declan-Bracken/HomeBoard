@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import { renderCanvas, ROLE_COLORS } from '../utils/canvasRenderer'
 import SaveButtons from '../components/SaveButtons'
+import Navbar from '../components/Navbar'
 
 const ROLE_LABELS = { any: 'Any', start: 'Start', end: 'End', foot: 'Foot' }
 
@@ -187,14 +188,6 @@ const styles = `
   html, body { background: #0f0e0d; overscroll-behavior: none; }
   .rd-root { min-height: 100vh; min-height: 100dvh; background-color: #0f0e0d; font-family: 'DM Sans', sans-serif; color: #f5f0eb; }
   .rd-root::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(ellipse 60% 40% at 80% 10%, rgba(255,100,40,0.06) 0%, transparent 60%), url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; }
-  .rd-nav { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 52px; background: rgba(15,14,13,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .rd-nav-left { display: flex; align-items: center; gap: 12px; }
-  .rd-nav-right { display: flex; align-items: center; gap: 8px; }
-  .nav-back { background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300; color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0; }
-  .nav-back:hover { color: #ff6428; }
-  .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.08em; color: #f5f0eb; }
-  .nav-logo span { color: #ff6428; }
   .log-send-btn { background: #ff6428; border: none; border-radius: 2px; padding: 7px 14px; font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.08em; color: #0f0e0d; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
   .log-send-btn:hover { background: #ff7a40; }
   .rd-main { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
@@ -267,7 +260,6 @@ const styles = `
     .rd-layout { grid-template-columns: 1fr 300px; gap: 28px; }
     .rd-title { font-size: 40px; }
     .rd-grade { font-size: 40px; }
-    .rd-nav { padding: 0 28px; }
     .rd-hide-desktop { display: none; }
   }
   @media (max-width: 700px) { .rd-hide-mobile { display: none; } }
@@ -395,17 +387,10 @@ export default function RouteDetailPage() {
         {showLogModal && <LogAscentModal wallId={wallId} routeId={routeId} routeGrade={route?.grade} onClose={() => setShowLogModal(false)} onLogged={handleLogged} />}
         {showFullscreen && canvasReady && <FullscreenCanvas imageUrl={imageUrl} allHolds={allHolds} routeHoldMap={routeHoldMap} imageDimensions={imageDimensions} onClose={() => setShowFullscreen(false)} />}
 
-        <nav className="rd-nav">
-          <div className="rd-nav-left">
-            <button className="nav-back" onClick={() => navigate(`/walls/${wallId}/detail`)}>← Back</button>
-            <div className="nav-divider" />
-            <div className="nav-logo">Home<span>Board</span></div>
-          </div>
-          <div className="rd-nav-right">
-            <SaveButtons routeId={routeId}/>
-            <button className="log-send-btn" onClick={() => setShowLogModal(true)}>+ Log Send</button>
-          </div>
-        </nav>
+        <Navbar backTo={`/walls/${wallId}/detail`}>
+          <SaveButtons routeId={routeId}/>
+          <button className="log-send-btn" onClick={() => setShowLogModal(true)}>+ Log Send</button>
+        </Navbar>
 
         <main className="rd-main">
           {isLoading ? (

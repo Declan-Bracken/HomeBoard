@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/axios'
 import { renderCanvas, ROLE_COLORS } from '../utils/canvasRenderer'
+import Navbar from '../components/Navbar'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLES = [null, 'any', 'foot', 'start', 'end']
@@ -260,27 +261,6 @@ const styles = `
     pointer-events: none; z-index: 0;
   }
 
-  .rc-nav {
-    position: sticky; top: 0; z-index: 10;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 40px; height: 60px;
-    background: rgba(15,14,13,0.85); backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
-
-  .rc-nav-left { display: flex; align-items: center; gap: 16px; }
-
-  .nav-back {
-    background: none; border: none;
-    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 300;
-    color: rgba(245,240,235,0.4); cursor: pointer; transition: color 0.2s; padding: 0;
-    min-height: 44px;
-  }
-  .nav-back:hover { color: #ff6428; }
-  .nav-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.1); }
-  .nav-logo { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 0.08em; color: #f5f0eb; }
-  .nav-logo span { color: #ff6428; }
-
   .rc-layout {
     position: relative; z-index: 1;
     display: grid; grid-template-columns: 1fr 300px; gap: 24px;
@@ -444,13 +424,7 @@ export default function RouteCreatePage() {
     <>
       <style>{styles}</style>
       <div className="rc-root">
-        <nav className="rc-nav">
-          <div className="rc-nav-left">
-            <button className="nav-back" onClick={() => navigate(`/walls/${id}/detail`)}>← Back</button>
-            <div className="nav-divider" />
-            <div className="nav-logo">Home<span>Board</span></div>
-          </div>
-        </nav>
+        <Navbar backTo={`/walls/${id}/detail`} />
 
         <div className="rc-layout">
           {isLoading && (
