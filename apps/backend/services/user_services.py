@@ -47,6 +47,7 @@ def get_statistics(user_id: int, db: Session):
             "n_attempts": a.n_attempts,
             "quality": a.quality,
             "suggested_grade": a.suggested_grade,
+            "notes": a.notes,
         }
         for a in ascents
     ]

@@ -25,8 +25,11 @@ function gradeIndex(grade) {
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
-function ActivityCalendar({ ascents }) {
-  const today = new Date()
+function ActivityCalendar({ ascents, memberSince }) {
+  const today = new Date(); today.setHours(0,0,0,0)
+  const joinDate = new Date(memberSince); joinDate.setHours(0,0,0,0)
+  const [viewYear, setViewYear] = useState(today.getFullYear())
+  const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [hoveredDay, setHoveredDay] = useState(null)
 
   const dateMap = useMemo(() => {
@@ -38,28 +41,26 @@ function ActivityCalendar({ ascents }) {
     return map
   }, [ascents])
 
-  const weeks = useMemo(() => {
-    const days = []
-    const end = new Date(today)
-    end.setHours(0,0,0,0)
-    const startOffset = (end.getDay() + 6) % 7
-    const start = new Date(end)
-    start.setDate(start.getDate() - 364 - startOffset)
-    const cur = new Date(start)
-    while (cur <= end) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1) }
-    const result = []
-    for (let i = 0; i < days.length; i += 7) result.push(days.slice(i, i + 7))
-    return result
-  }, [])
+  const atCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth()
+  const atJoinMonth = viewYear === joinDate.getFullYear() && viewMonth === joinDate.getMonth()
 
-  const monthLabels = useMemo(() => {
-    const labels = []; let lastMonth = -1
-    weeks.forEach((week, wi) => {
-      const month = week[0].getMonth()
-      if (month !== lastMonth) { labels.push({ wi, label: MONTHS[month] }); lastMonth = month }
-    })
-    return labels
-  }, [weeks])
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
+    else setViewMonth(m => m - 1)
+  }
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
+    else setViewMonth(m => m + 1)
+  }
+
+  const calDays = useMemo(() => {
+    const firstDow = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7 // Mon=0
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+    const cells = []
+    for (let i = 0; i < firstDow; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(viewYear, viewMonth, d))
+    return cells
+  }, [viewYear, viewMonth])
 
   const fmtDate = (d) => {
     const y = d.getFullYear()
@@ -75,55 +76,54 @@ function ActivityCalendar({ ascents }) {
     return gradeColor(best.grade) + 'cc'
   }
 
+  const todayStr = fmtDate(today)
+
   return (
-    <div className="calendar-wrap">
-      <div className="calendar-months">
-        <div style={{ width: 28 }} />
-        <div style={{ position: 'relative', flex: 1, height: 16 }}>
-          {monthLabels.map(({ wi, label }) => (
-            <span key={wi} className="month-label" style={{ left: wi * 13 }}>{label}</span>
-          ))}
-        </div>
+    <div className="cal-wrap">
+      <div className="cal-nav">
+        <button className="cal-nav-btn" onClick={prevMonth} disabled={atJoinMonth}>←</button>
+        <span className="cal-month-label">{MONTHS[viewMonth]} {viewYear}</span>
+        <button className="cal-nav-btn" onClick={nextMonth} disabled={atCurrentMonth}>→</button>
       </div>
-      <div className="calendar-body">
-        <div className="calendar-days">
-          {DAYS.map((d, i) => (
-            <span key={d} className="day-label" style={{ opacity: i % 2 === 0 ? 0.4 : 0 }}>{d}</span>
-          ))}
-        </div>
-        <div className="calendar-grid">
-          {weeks.map((week, wi) => (
-            <div key={wi} className="calendar-week">
-              {week.map((day, di) => {
-                const dateStr = fmtDate(day)
-                const entries = dateMap[dateStr] ?? []
-                const isHovered = hoveredDay === dateStr
-                const isFuture = day > today
-                return (
-                  <div key={di} className="calendar-cell"
-                    style={{ background: isFuture ? 'transparent' : getCellColor(dateStr), border: isHovered ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent', opacity: isFuture ? 0 : 1 }}
-                    onMouseEnter={() => setHoveredDay(dateStr)} onMouseLeave={() => setHoveredDay(null)}>
-                    {isHovered && (
-                      <div className="cell-tooltip">
-                        <div className="tooltip-date">{dateStr}</div>
-                        {entries.length === 0
-                          ? <div style={{ color: 'rgba(245,240,235,0.3)', fontSize: 11 }}>No sends</div>
-                          : entries.map((e, i) => (
-                            <div key={i} className="tooltip-entry">
-                              <span style={{ color: gradeColor(e.grade) }}>{e.grade}</span>
-                              {' '}{e.route_name}
-                              <span className="tooltip-wall"> · {e.wall_name}</span>
-                            </div>
-                          ))
-                        }
+      <div className="cal-dow-row">
+        {DAYS.map(d => <span key={d} className="cal-dow-label">{d}</span>)}
+      </div>
+      <div className="cal-grid">
+        {calDays.map((day, i) => {
+          if (!day) return <div key={`e-${i}`} className="cal-cell cal-cell--empty" />
+          const dateStr = fmtDate(day)
+          const entries = dateMap[dateStr] ?? []
+          const isFuture = day > today
+          const isToday = dateStr === todayStr
+          const isHovered = hoveredDay === dateStr
+          return (
+            <div key={dateStr}
+              className={`cal-cell${isFuture ? ' cal-cell--future' : ''}${isToday ? ' cal-cell--today' : ''}`}
+              style={{ background: isFuture ? 'rgba(255,255,255,0.02)' : getCellColor(dateStr) }}
+              onMouseEnter={() => !isFuture && setHoveredDay(dateStr)}
+              onMouseLeave={() => setHoveredDay(null)}
+            >
+              <span className="cal-day-num" style={{
+                color: isFuture ? 'rgba(245,240,235,0.1)' : entries.length > 0 ? 'rgba(15,14,13,0.85)' : 'rgba(245,240,235,0.25)'
+              }}>{day.getDate()}</span>
+              {isHovered && !isFuture && (
+                <div className="cell-tooltip">
+                  <div className="tooltip-date">{dateStr}</div>
+                  {entries.length === 0
+                    ? <div style={{ color: 'rgba(245,240,235,0.3)', fontSize: 11 }}>No sends</div>
+                    : entries.map((e, idx) => (
+                      <div key={idx} className="tooltip-entry">
+                        <span style={{ color: gradeColor(e.grade) }}>{e.grade}</span>
+                        {' '}{e.route_name}
+                        <span className="tooltip-wall"> · {e.wall_name}</span>
                       </div>
-                    )}
-                  </div>
-                )
-              })}
+                    ))
+                  }
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          )
+        })}
       </div>
       <div className="calendar-legend">
         <span className="legend-label">Less</span>
@@ -301,16 +301,21 @@ const styles = `
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; color: rgba(245,240,235,0.4); }
   .section-divider { height: 1px; background: rgba(255,255,255,0.05); }
 
-  .calendar-wrap { display: flex; flex-direction: column; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .calendar-months { display: flex; gap: 4px; }
-  .month-label { position: absolute; font-size: 10px; font-weight: 300; color: rgba(245,240,235,0.3); letter-spacing: 0.06em; white-space: nowrap; }
-  .calendar-body { display: flex; gap: 4px; }
-  .calendar-days { display: flex; flex-direction: column; gap: 2px; padding-top: 18px; width: 28px; flex-shrink: 0; }
-  .day-label { font-size: 9px; font-weight: 300; color: rgba(245,240,235,0.4); height: 11px; line-height: 11px; }
-  .calendar-grid { display: flex; gap: 2px; padding-top: 18px; }
-  .calendar-week { display: flex; flex-direction: column; gap: 2px; }
-  .calendar-cell { width: 11px; height: 11px; border-radius: 2px; cursor: pointer; transition: transform 0.1s; position: relative; flex-shrink: 0; }
-  .calendar-cell:hover { transform: scale(1.3); z-index: 5; }
+  .cal-wrap { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+  .cal-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 2px; }
+  .cal-nav-btn { background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; width: 30px; height: 30px; color: rgba(245,240,235,0.5); cursor: pointer; transition: all 0.2s; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .cal-nav-btn:hover:not(:disabled) { border-color: rgba(255,100,40,0.4); color: #ff6428; }
+  .cal-nav-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+  .cal-month-label { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.08em; min-width: 130px; text-align: center; }
+  .cal-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-dow-label { font-size: 9px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(245,240,235,0.25); text-align: center; padding: 2px 0; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-cell { aspect-ratio: 1; border-radius: 3px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; min-height: 40px; transition: transform 0.1s; }
+  .cal-cell--empty { background: transparent !important; cursor: default; pointer-events: none; }
+  .cal-cell--future { cursor: default; }
+  .cal-cell--today { box-shadow: 0 0 0 1px rgba(255,100,40,0.6); }
+  .cal-cell:not(.cal-cell--empty):not(.cal-cell--future):hover { transform: scale(1.08); z-index: 5; }
+  .cal-day-num { font-size: 11px; font-weight: 400; pointer-events: none; line-height: 1; user-select: none; }
   .cell-tooltip { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: #1e1b18; border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; padding: 8px 12px; width: max-content; max-width: 220px; z-index: 20; pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .tooltip-date { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; color: rgba(245,240,235,0.4); margin-bottom: 4px; text-transform: uppercase; }
   .tooltip-entry { font-size: 12px; font-weight: 300; color: #f5f0eb; line-height: 1.6; }
@@ -320,7 +325,8 @@ const styles = `
   .legend-cell { width: 11px; height: 11px; border-radius: 2px; }
 
   .ascents-table { display: flex; flex-direction: column; gap: 2px; }
-  .ascent-row { display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px; gap: 12px; align-items: center; padding: 11px 14px; border-radius: 2px; background: #161412; border: 1px solid rgba(255,255,255,0.04); font-size: 13px; font-weight: 300; transition: border-color 0.2s, background 0.15s; }
+  .ascent-row { display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px; gap: 12px; align-items: flex-start; padding: 11px 14px; border-radius: 2px; background: #161412; border: 1px solid rgba(255,255,255,0.04); font-size: 13px; font-weight: 300; transition: border-color 0.2s, background 0.15s; }
+  .ascent-notes { font-size: 11px; font-weight: 300; color: rgba(245,240,235,0.4); margin-top: 4px; font-style: italic; }
   .ascent-row:hover { background: #1a1714; border-color: rgba(255,255,255,0.08); }
   .ascent-row-header { display: grid; grid-template-columns: 88px 1fr 1fr 56px 72px; gap: 12px; padding: 0 14px 8px; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(245,240,235,0.25); }
   .grade-chip { font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 2px; display: inline-block; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
@@ -460,7 +466,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="profile-section">
-                <span className="section-title">Activity — Last 52 Weeks</span>
+                <span className="section-title">Activity</span>
                 <div className="section-divider" />
                 {profile.ascents.length === 0 ? (
                   <div className="empty-state">
@@ -468,7 +474,7 @@ export default function ProfilePage() {
                     <div className="empty-label">No activity yet — log your first send</div>
                   </div>
                 ) : (
-                  <ActivityCalendar ascents={profile.ascents} />
+                  <ActivityCalendar ascents={profile.ascents} memberSince={profile.member_since} />
                 )}
               </div>
 
@@ -487,8 +493,11 @@ export default function ProfilePage() {
                     </div>
                     {profile.ascents.map((a, i) => (
                       <div key={i} className="ascent-row">
-                        <span style={{ color: 'rgba(245,240,235,0.4)', fontSize: 12 }}>{a.date}</span>
-                        <span style={{ fontWeight: 400 }}>{a.route_name}</span>
+                        <span style={{ color: 'rgba(245,240,235,0.4)', fontSize: 12, paddingTop: 1 }}>{a.date}</span>
+                        <div>
+                          <span style={{ fontWeight: 400 }}>{a.route_name}</span>
+                          {a.notes && <div className="ascent-notes">{a.notes}</div>}
+                        </div>
                         <span style={{ color: 'rgba(245,240,235,0.4)' }}>{a.wall_name}</span>
                         <span><span className="grade-chip" style={{ color: gradeColor(a.grade) }}>{a.grade}</span></span>
                         <span>

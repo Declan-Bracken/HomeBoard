@@ -152,6 +152,7 @@ class AscentSummary(BaseModel):
     n_attempts: Optional[int] = None
     quality: Optional[int] = None
     suggested_grade: Optional[str] = None
+    notes: Optional[str] = None
 
 class UserProfileResponse(BaseModel):
     username: str
